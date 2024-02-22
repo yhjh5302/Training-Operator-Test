@@ -1,0 +1,52 @@
+name: MPI-Job Launcher
+description: Kubeflow MPIJob launcher
+inputs:
+- {name: name,                       type: String,                          description: 'MPIJob name.'}
+- {name: namespace,                  type: String,      default: kubeflow,  description: 'MPIJob namespace (likely your current namespace).'}
+- {name: version,                    type: String,      default: v1,        description: 'MPIJob version.'}
+- {name: launcher_spec,                type: JsonObject,  default: '{}',      description: 'MPIJob Launcher replicaSpecs.'}
+- {name: worker_spec,                type: JsonObject,  default: '{}',      description: 'MPIJob Worker replicaSpecs.'}
+- {name: schedule_timeout_seconds,        type: Integer,     default: 1440,      description: 'Time in seconds to wait for the job to schedule.'}
+- {name: scheduling_policy,          type: JsonObject,     default: '{}' ,   description: 'MPIJob supports the gang-scheduling.'}
+- {name: job_timeout_minutes,        type: Integer,     default: 1440,      description: 'Time in minutes to wait for the job to complete.'}
+- {name: delete_after_done,          type: Boolean,     default: 'True' ,   description: 'Whether to delete the job after it is finished.'}
+- {name: clean_pod_policy,           type: String,      default: Running,   description: 'Defines the policy for cleaning up pods after the MPIJob completes.'}
+- {name: active_deadline_seconds,    type: Integer,     optional: true,     description: 'Specifies the duration (in seconds) since startTime during which the job can remain active before it is terminated. Must be a positive integer. This setting applies only to pods where restartPolicy is OnFailure or Always.'}
+- {name: backoff_limit,              type: Integer,     optional: true,     description: 'Number of retries before marking this job as failed.'}
+- {name: ttl_seconds_after_finished, type: Integer,     optional: true,     description: 'Defines the TTL for cleaning up finished MPIJobs.'}
+implementation:
+  container:
+    image: yhjh5302/kubeflow-mpi-job-launcher:v1
+    command: [python, /ml/launch_mpi_job.py]
+    args: 
+      - --name
+      - {inputValue: name}
+      - --namespace
+      - {inputValue: namespace}
+      - --version
+      - {inputValue: version}
+      - --launcherSpec
+      - {inputValue: launcher_spec}
+      - --workerSpec
+      - {inputValue: worker_spec}
+      - --scheduleTimeoutSeconds
+      - {inputValue: schedule_timeout_seconds}
+      - --schedulingPolicy
+      - {inputValue: scheduling_policy}
+      - --cleanPodPolicy
+      - {inputValue: clean_pod_policy}
+      - if:
+          cond: {isPresent: active_deadline_seconds}
+          then:
+          - --activeDeadlineSeconds
+          - {inputValue: active_deadline_seconds}
+      - if:
+          cond: {isPresent: backoff_limit}
+          then:
+          - --backoffLimit
+          - {inputValue: backoff_limit}
+      - if:
+          cond: {isPresent: ttl_seconds_after_finished}
+          then:
+          - --ttlSecondsAfterFinished
+          - {inputValue: ttl_seconds_after_finished}
