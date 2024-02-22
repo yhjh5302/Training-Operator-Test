@@ -35,13 +35,19 @@ class K8sCR(object):
     max_retry = 5760 # 24h
     for _ in range(max_retry):
       try:
-        stream = self.core_client.read_namespaced_pod_log(name=pod_name, namespace=namespace, follow=True, _preload_content=False)
-        break
+        pod = v1.read_namespaced_pod(name=pod_name, namespace=namespace)
+        pod_phase = pod.status.phase
+        if pod_phase in ['Pending', 'Init', 'PodInitializing']:
+          logger.info(f"{namespace}/{pod_name} is {pod_phase}... retry")
+          time.sleep(15)
+        else:
+          break
       except rest.ApiException as e:
         if e.status == 404:
           logger.info(f"{namespace}/{pod_name} not found... retry")
           time.sleep(15)
 
+    stream = self.core_client.read_namespaced_pod_log(name=pod_name, namespace=namespace, follow=True, _preload_content=False)
     for line in stream:
       logger.info(f"{color}{prefix}\033[0m {line.decode().strip()}")
     logger.info(f"Stop reading {namespace}/{pod_name} logs")

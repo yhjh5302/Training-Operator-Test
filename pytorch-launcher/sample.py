@@ -48,7 +48,7 @@ clear_pytorchjob_op = components.func_to_container_op(func=Clear_PyTorchJob, pac
     name="launch-kubeflow-pytorchjob",
     description="An example to launch pytorch.",
 )
-def custom_pipeline(image: str, command: str, num_worker: int, cpu_per_worker: int, memory_per_worker: int, gpu_per_worker: int) -> None:
+def custom_pipeline(namespace: str, image: str, command: str, num_worker: int, cpu_per_worker: int, memory_per_worker: int, gpu_per_worker: int) -> None:
     """
     Run MPI-Job
     Args:
@@ -68,7 +68,7 @@ def custom_pipeline(image: str, command: str, num_worker: int, cpu_per_worker: i
     command: str = 'cd /workspace && python3 pytorchjob_train.py --batch_size=1 --backend=gloo'
     train_task = pytorch_job_op(
         name='pytorch-cnn-dist-job',
-        namespace='yhjin',
+        namespace=namespace,
         master_spec='{ \
           "replicas": 1, \
           "restartPolicy": "Never", \
@@ -181,14 +181,14 @@ def custom_pipeline(image: str, command: str, num_worker: int, cpu_per_worker: i
     )
     handle_exit = clear_pytorchjob_op(
       name='pytorch-cnn-dist-job',
-      namespace='yhjin',
+      namespace=namespace,
       version='v1'
     )
     handle_exit.after(train_task)
 
 
 # credentials = auth.ServiceAccountTokenVolumeCredentials(path=None)
-cookies = 'authservice_session=MTcwODA2NTQ2OXxOd3dBTkZjMFZrbEhWRmxEVHpWUE5GQlFXa1pQTjFGUE5VNVhXa3RCUTBaUFFWUkZOa0pEVTBOUlNrc3pRMFpGVUZWV04xSlBSMEU9fMY1GZ0bQngtlGBIcFbQQJSF4e4gQ70sNOuWMQPD41hd'
+cookies = 'authservice_session='
 namespace = 'yhjin'
 client = kfp_client(
     host=f"http://ml-pipeline.kubeflow:8888",
