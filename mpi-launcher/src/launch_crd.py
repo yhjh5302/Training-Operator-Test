@@ -213,3 +213,33 @@ class K8sService(object):
 
     logger.error("Exception when %s service: %s", action, message)
     return
+
+
+class K8sServiceAccount(object):
+  def __init__(self, client):
+    self.custom_client = k8s_client.CustomObjectsApi(client)
+    self.core_client = k8s_client.CoreV1Api(client)
+
+  def delete(self, name, namespace):
+    try:
+      logger.info("Deleteing service account %s in namespace %s.", name, namespace)
+      api_response = self.core_client.delete_namespaced_service_account(name=name, namespace=namespace, body={"propagationPolicy": "Foreground"})
+      logger.info("Deleted servicee account %s in namespace %s.", name, namespace)
+      return api_response
+    except rest.ApiException as e:
+      self._log_and_raise_exception(e, "delete")
+
+  def _log_and_raise_exception(self, ex, action):
+    message = ""
+    if getattr(ex, "message", None):
+      message = ex.message
+    if getattr(ex, "body", None):
+      try:
+        body = json.loads(ex.body)
+        message = body.get("message")
+      except ValueError:
+        logger.error("Exception when %s service account: %s", action, ex.body)
+        return
+
+    logger.error("Exception when %s service account: %s", action, message)
+    return

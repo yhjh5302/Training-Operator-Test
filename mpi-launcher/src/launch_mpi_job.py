@@ -170,6 +170,7 @@ def main(args):
     create_response = launcher_client.create(serialized_job)
 
     serivce_client = launch_crd.K8sService(client=api_client)
+    service_account_client = launch_crd.K8sServiceAccount(client=api_client)
 
     logger.info("Submitting Launcher Service.")
     create_response = serivce_client.create(
@@ -222,6 +223,7 @@ def main(args):
         serivce_client.delete(f"{args.name}-launcher", args.namespace)
         for index in range(num_workers):
             serivce_client.delete(f"{args.name}-worker-{index}", args.namespace)
+        service_account_client.delete(f"{args.name}-launcher", args.namespace)
 
 
 if __name__ == "__main__":
