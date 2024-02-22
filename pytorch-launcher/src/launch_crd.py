@@ -35,7 +35,7 @@ class K8sCR(object):
     max_retry = 5760 # 24h
     for _ in range(max_retry):
       try:
-        pod = v1.read_namespaced_pod(name=pod_name, namespace=namespace)
+        pod = self.core_client.read_namespaced_pod(name=pod_name, namespace=namespace)
         pod_phase = pod.status.phase
         if pod_phase in ['Pending', 'Init', 'PodInitializing']:
           logger.info(f"{namespace}/{pod_name} is {pod_phase}... retry")
