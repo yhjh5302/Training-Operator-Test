@@ -30,7 +30,7 @@ class K8sCR(object):
     self.custom_client = k8s_client.CustomObjectsApi(client)
     self.core_client = k8s_client.CoreV1Api(client)
 
-  def print_pod_logs(self, namespace, pod_name, prefix="", color="\033[0m"):
+  def print_pod_logs(self, namespace, pod_name, prefix=""):
     stream = []
     max_retry = 5760 # 24h
     for _ in range(max_retry):
@@ -49,7 +49,7 @@ class K8sCR(object):
 
     stream = self.core_client.read_namespaced_pod_log(name=pod_name, namespace=namespace, follow=True, _preload_content=False)
     for line in stream:
-      logger.info(f"{color}{prefix}\033[0m {line.decode().strip()}")
+      logger.info(f"{prefix}: {line.decode().strip()}")
     logger.info(f"Stop reading {namespace}/{pod_name} logs")
       
 

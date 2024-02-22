@@ -106,19 +106,6 @@ def extract_replicas(worker_spec):
         return 0
 
 
-COLOR_LIST = [
-    "\033[36m", # Dark Cyan
-    "\033[32m", # Dark Green
-    "\033[33m", # Dark Yellow
-    "\033[38;5;208m", # Dark Orange
-    "\033[35m", # Dark Magenta
-    "\033[34m", # Dark Blue
-    "\033[38;5;154m", # Dark Lime Green
-    "\033[31m", # Dark Red
-]
-COLOR_LIST = [color for _ in range(32) for color in COLOR_LIST]
-
-
 def main(args):
     logger.setLevel(logging.INFO)
     logger.info("Generating job template.")
@@ -168,11 +155,11 @@ def main(args):
     )
 
     num_workers = extract_replicas(args.workerSpec)
-    tracking_pod_list = [(f"{args.name}-master-0", "master", "\033[31m")] \
-                      + [(f"{args.name}-worker-{index}", f"worker-{index}", COLOR_LIST[index]) for index in range(num_workers)]
+    tracking_pod_list = [(f"{args.name}-master-0", "master-0")] \
+                      + [(f"{args.name}-worker-{index}", f"worker-{index}") for index in range(num_workers)]
 
-    for (pod_name, prefix, color) in tracking_pod_list:
-        thread = threading.Thread(target=launcher_client.print_pod_logs, args=(args.namespace, pod_name, prefix, color))
+    for (pod_name, prefix) in tracking_pod_list:
+        thread = threading.Thread(target=launcher_client.print_pod_logs, args=(args.namespace, pod_name, prefix))
         thread.daemon = True
         thread.start()
 

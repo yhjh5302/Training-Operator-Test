@@ -112,19 +112,6 @@ def extract_replicas(worker_spec):
         return 0
 
 
-COLOR_LIST = [
-    "\033[36m", # Dark Cyan
-    "\033[32m", # Dark Green
-    "\033[33m", # Dark Yellow
-    "\033[38;5;208m", # Dark Orange
-    "\033[35m", # Dark Magenta
-    "\033[34m", # Dark Blue
-    "\033[38;5;154m", # Dark Lime Green
-    "\033[31m", # Dark Red
-]
-COLOR_LIST = [color for _ in range(32) for color in COLOR_LIST]
-
-
 def main(args):
     logger.setLevel(logging.INFO)
     logger.info("Generating job template.")
@@ -205,13 +192,9 @@ def main(args):
         f"Monitoring job until status is any of {expected_conditions}."
     )
 
-    tracking_pod_list = [(f"{args.name}-launcher", "launcher", "\033[31m")] \
-                      + [(f"{args.name}-worker-{index}", f"worker-{index}", COLOR_LIST[index]) for index in range(num_workers)]
-
-    for (pod_name, prefix, color) in tracking_pod_list:
-        thread = threading.Thread(target=launcher_client.print_pod_logs, args=(args.namespace, pod_name, prefix, color))
-        thread.daemon = True
-        thread.start()
+    thread = threading.Thread(target=launcher_client.print_pod_logs, args=(args.namespace, f"{args.name}-launcher"))
+    thread.daemon = True
+    thread.start()
 
     launcher_client.wait_for_condition(
         args.namespace, args.name, expected_conditions,
