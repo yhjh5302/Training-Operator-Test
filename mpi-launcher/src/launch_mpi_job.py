@@ -13,7 +13,7 @@ from v1_mpi_job import V1MPIJob as V1MPIJob_original
 from v1_mpi_job_spec import V1MPIJobSpec as V1MPIJobSpec_original
 
 
-logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 logger = logging.getLogger(__name__)
 

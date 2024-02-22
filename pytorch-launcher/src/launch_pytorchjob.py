@@ -13,7 +13,7 @@ from kubeflow.pytorchjob import V1PyTorchJob as V1PyTorchJob_original
 from kubeflow.pytorchjob import V1PyTorchJobSpec as V1PyTorchJobSpec_original
 
 
-logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 logger = logging.getLogger(__name__)
 
