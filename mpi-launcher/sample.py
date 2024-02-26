@@ -139,7 +139,7 @@ def custom_pipeline(name: str, namespace: str, image: str, command: str, num_wor
           "template": { \
             "metadata": { \
               "annotations": { \
-                "sidecar.istio.io/inject": "false", \
+                "sidecar.istio.io/inject": "false" \
               }, \
               "labels": { \
                 "pod-group.scheduling.x-k8s.io/name": %s \
