@@ -170,6 +170,8 @@ def main(args):
     if args.deleteAfterDone:
         logger.info("Deleting job.")
         launcher_client.delete(args.name, args.namespace)
+        logger.info("Deleting podgroup.")
+        podgroup_client.delete(args.name, args.namespace)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: launch-kubeflow-pytorchjob-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-02-26T08:50:16.470727',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-02-26T09:10:21.788473',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "An example to launch pytorch.",
       "inputs": [{"name": "name", "type": "String"}, {"name": "namespace", "type":
       "String"}, {"description": "Image registry for workers (string)", "name": "image",
@@ -134,7 +134,7 @@ spec:
       - --masterSpec
       - '{           "replicas": 1,           "restartPolicy": "Never",           "template":
         {             "metadata": {               "annotations": {                 "sidecar.istio.io/inject":
-        "false",               },               "labels": {                 "pod-group.scheduling.x-k8s.io/name":
+        "false"               },               "labels": {                 "pod-group.scheduling.x-k8s.io/name":
         pytorch-cnn-dist-job               }             },             "spec": {               "containers":
         [                 {                   "name": "pytorch",                   "image":
         "yhjh5302/pytorchjob-test:latest",                   "command": ["/bin/bash",
@@ -149,7 +149,7 @@ spec:
       - --workerSpec
       - '{           "replicas": {{inputs.parameters.num_worker}},           "restartPolicy":
         "Never",           "template": {             "metadata": {               "annotations":
-        {                 "sidecar.istio.io/inject": "false",               },               "labels":
+        {                 "sidecar.istio.io/inject": "false"               },               "labels":
         {                 "pod-group.scheduling.x-k8s.io/name": pytorch-cnn-dist-job               }             },             "spec":
         {               "containers": [                 {                   "name":
         "pytorch",                   "image": "yhjh5302/pytorchjob-test:latest",                   "command":
@@ -221,7 +221,7 @@ spec:
           "Running", "delete_after_done": "True", "job_timeout_minutes": "1440", "master_spec":
           "{           \"replicas\": 1,           \"restartPolicy\": \"Never\",           \"template\":
           {             \"metadata\": {               \"annotations\": {                 \"sidecar.istio.io/inject\":
-          \"false\",               },               \"labels\": {                 \"pod-group.scheduling.x-k8s.io/name\":
+          \"false\"               },               \"labels\": {                 \"pod-group.scheduling.x-k8s.io/name\":
           pytorch-cnn-dist-job               }             },             \"spec\":
           {               \"containers\": [                 {                   \"name\":
           \"pytorch\",                   \"image\": \"yhjh5302/pytorchjob-test:latest\",                   \"command\":
@@ -237,7 +237,7 @@ spec:
           "name": "pytorch-cnn-dist-job", "namespace": "{{inputs.parameters.namespace}}",
           "version": "v1", "worker_spec": "{           \"replicas\": {{inputs.parameters.num_worker}},           \"restartPolicy\":
           \"Never\",           \"template\": {             \"metadata\": {               \"annotations\":
-          {                 \"sidecar.istio.io/inject\": \"false\",               },               \"labels\":
+          {                 \"sidecar.istio.io/inject\": \"false\"               },               \"labels\":
           {                 \"pod-group.scheduling.x-k8s.io/name\": pytorch-cnn-dist-job               }             },             \"spec\":
           {               \"containers\": [                 {                   \"name\":
           \"pytorch\",                   \"image\": \"yhjh5302/pytorchjob-test:latest\",                   \"command\":

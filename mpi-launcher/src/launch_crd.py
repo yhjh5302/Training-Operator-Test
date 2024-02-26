@@ -182,8 +182,14 @@ class K8sPodGroup(object):
 
   def create(self, name, namespace, num_pod, schedule_timeout_seconds):
     body = {
-      "scheduleTimeoutSeconds": schedule_timeout_seconds,
-      "minMember": num_pod,
+      "metadata": {
+        "name": name,
+        "namespace": namespace
+      },
+      "spec": {
+        "scheduleTimeoutSeconds": schedule_timeout_seconds,
+        "minMember": num_pod
+      }
     }
     try:
       logger.info("Creating podgroup %s in namespace %s.", name, namespace)
@@ -192,7 +198,6 @@ class K8sPodGroup(object):
         version=self.version,
         namespace=namespace,
         plural=self.plural,
-        name=name,
         body=body)
       logger.info("Created podgroup %s in namespace %s.", name, namespace)
       return api_response

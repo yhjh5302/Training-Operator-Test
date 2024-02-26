@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: launch-kubeflow-mpi-job-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-02-26T08:50:12.386918',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-02-26T09:10:17.154256',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "An example to launch deepspeed.",
       "inputs": [{"name": "name", "type": "String"}, {"name": "namespace", "type":
       "String"}, {"description": "Image registry for workers (string)", "name": "image",
@@ -171,7 +171,7 @@ spec:
           {                     "medium": "Memory"                   }                 }               ]             }           }         }',
         --workerSpec, '{           "replicas": {{inputs.parameters.num_worker}},           "restartPolicy":
           "Never",           "template": {             "metadata": {               "annotations":
-          {                 "sidecar.istio.io/inject": "false",               },               "labels":
+          {                 "sidecar.istio.io/inject": "false"               },               "labels":
           {                 "pod-group.scheduling.x-k8s.io/name": deepspeed-cnn-dist-job               }             },             "spec":
           {               "containers": [                 {                   "name":
           "deepspeed",                   "image": "yhjh5302/deepspeed-test:latest",                   "command":
@@ -266,7 +266,7 @@ spec:
           "schedule_timeout_seconds": "1440", "scheduling_policy": "{}", "version":
           "v1", "worker_spec": "{           \"replicas\": {{inputs.parameters.num_worker}},           \"restartPolicy\":
           \"Never\",           \"template\": {             \"metadata\": {               \"annotations\":
-          {                 \"sidecar.istio.io/inject\": \"false\",               },               \"labels\":
+          {                 \"sidecar.istio.io/inject\": \"false\"               },               \"labels\":
           {                 \"pod-group.scheduling.x-k8s.io/name\": deepspeed-cnn-dist-job               }             },             \"spec\":
           {               \"containers\": [                 {                   \"name\":
           \"deepspeed\",                   \"image\": \"yhjh5302/deepspeed-test:latest\",                   \"command\":

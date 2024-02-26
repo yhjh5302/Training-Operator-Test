@@ -213,9 +213,13 @@ def main(args):
     if args.deleteAfterDone:
         logger.info("Deleting job.")
         launcher_client.delete(args.name, args.namespace)
+        logger.info("Deleting podgroup.")
+        podgroup_client.delete(args.name, args.namespace)
+        logger.info("Deleting services.")
         serivce_client.delete(f"{args.name}-launcher", args.namespace)
         for index in range(num_workers):
             serivce_client.delete(f"{args.name}-worker-{index}", args.namespace)
+        logger.info("Deleting service account.")
         service_account_client.delete(f"{args.name}-launcher", args.namespace)
 
 
