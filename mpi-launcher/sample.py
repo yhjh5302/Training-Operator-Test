@@ -21,11 +21,13 @@ def get_current_namespace():
 
 def Clear_MPI_Job(name, namespace, version):
     import kubernetes
-    api_instance = kubernetes.client.CustomObjectsApi()
+    kubernetes.config.load_incluster_config()
+    api_instance_custom = kubernetes.client.CustomObjectsApi()
+    api_instance_core = kubernetes.client.CoreV1Api()
     group = "kubeflow.org"
     plural = "mpijobs"
     try:
-        api_response = api_instance.delete_namespaced_custom_object(
+        api_response = api_instance_custom.delete_namespaced_custom_object(
             name=name,
             namespace=namespace,
             group=group,
@@ -33,12 +35,27 @@ def Clear_MPI_Job(name, namespace, version):
             plural=plural,
             body=kubernetes.client.models.V1DeleteOptions(
                 propagation_policy='Foreground',
-                grace_period_seconds=5
+                grace_period_seconds=15
             )
         )
-        print("MPI-Job deleted. Status='%s'" % str(api_response.status))
+        print("MPI-Job %s/%s deleted. Status='%s'" % (name, namespace, str(api_response.get("status", None))))
     except kubernetes.client.rest.ApiException as e:
         print("Exception when calling CustomObjectsApi->delete_namespaced_custom_object: %s\n" % e)
+
+    try:
+        api_response = api_instance_core.delete_namespaced_service(name=f"{name}-launcher", namespace=namespace, body={"propagationPolicy": "Foreground"})
+        print("Service %s/%s deleted. Status='%s'" % (f"{name}-launcher", namespace, str(api_response.status)))
+        for index in range(num_workers):
+            api_response = api_instance_core.delete_namespaced_service(name=f"{name}-worker-{index}", namespace=namespace, body={"propagationPolicy": "Foreground"})
+            print("Service %s/%s deleted. Status='%s'" % (f"{name}-worker-{index}", namespace, str(api_response.status)))
+    except kubernetes.client.rest.ApiException as e:
+        print("Exception when calling CoreV1Api->delete_namespaced_service: %s\n" % e)
+
+    try:
+        api_response = api_instance_core.delete_namespaced_service_account(name=f"{name}-launcher", namespace=namespace, body={"propagationPolicy": "Foreground"})
+        print("ServiceAccount %s/%s deleted. Status='%s'" % (f"{name}-launcher", namespace, str(api_response.status)))
+    except kubernetes.client.rest.ApiException as e:
+        print("Exception when calling CoreV1Api->delete_namespaced_service_account: %s\n" % e)
 
 
 clear_mpijob_op = components.func_to_container_op(func=Clear_MPI_Job, packages_to_install=['kubernetes'])
@@ -48,12 +65,13 @@ clear_mpijob_op = components.func_to_container_op(func=Clear_MPI_Job, packages_t
     name="launch-kubeflow-mpi-job",
     description="An example to launch deepspeed.",
 )
-def custom_pipeline(namespace: str, image: str, command: str, num_worker: int, cpu_per_worker: int, memory_per_worker: int, gpu_per_worker: int) -> None:
+def custom_pipeline(name: str, namespace: str, image: str, command: str, num_worker: int, cpu_per_worker: int, memory_per_worker: int, gpu_per_worker: int) -> None:
     """
     Run MPI-Job
     Args:
         image (str): Image registry for workers (string)
         command (str): Command for workers (string)
+        num_worker (int): Number of workers (integer)
         num_worker (int): Number of workers (integer)
         cpu_per_worker (int): CPU allocation per worker (integer: Cores)
         memory_per_worker (int): Memory allocation per worker (integer: GiB)
@@ -64,10 +82,12 @@ def custom_pipeline(namespace: str, image: str, command: str, num_worker: int, c
 
     # MPI-Job Test
     mpi_job_op = components.load_component_from_file('./mpi_job_component.yaml')
+    name: str = 'deepspeed-cnn-dist-job'
     image: str = 'yhjh5302/deepspeed-test:latest'
     command: str = '/usr/sbin/sshd && deepspeed -H /etc/mpi/hostfile deepspeed_train.py --deepspeed --deepspeed_config config.json'
+    
     train_task = mpi_job_op(
-        name='deepspeed-cnn-dist-job',
+        name=name,
         namespace=namespace,
         launcher_spec='{ \
           "replicas": 1, \
@@ -75,20 +95,10 @@ def custom_pipeline(namespace: str, image: str, command: str, num_worker: int, c
           "template": { \
             "metadata": { \
               "annotations": { \
-                "sidecar.istio.io/inject": "false", \
-                "yunikorn.apache.org/task-group-name": "task-group-example", \
-                "yunikorn.apache.org/task-groups": "[{ \
-                  \\"name\\": \\"task-group-example\\", \
-                  \\"minMember\\": 2, \
-                  \\"minResource\\": { \
-                    \\"cpu\\": %s, \
-                    \\"memory\\": %sGi, \
-                    \\"nvidia.com/gpu\\": %s \
-                  }, \
-                  \\"nodeSelector\\": {}, \
-                  \\"tolerations\\": [], \
-                  \\"affinity\\": {} \
-                }]" \
+                "sidecar.istio.io/inject": "false" \
+              }, \
+              "labels": { \
+                "pod-group.scheduling.x-k8s.io/name": %s \
               } \
             }, \
             "spec": { \
@@ -122,7 +132,7 @@ def custom_pipeline(namespace: str, image: str, command: str, num_worker: int, c
               ] \
             } \
           } \
-        }' % (cpu_per_worker, memory_per_worker, gpu_per_worker, image, command, cpu_per_worker, memory_per_worker, gpu_per_worker),
+        }' % (name, image, command, cpu_per_worker, memory_per_worker, gpu_per_worker),
         worker_spec='{ \
           "replicas": %s, \
           "restartPolicy": "Never", \
@@ -130,19 +140,9 @@ def custom_pipeline(namespace: str, image: str, command: str, num_worker: int, c
             "metadata": { \
               "annotations": { \
                 "sidecar.istio.io/inject": "false", \
-                "yunikorn.apache.org/task-group-name": "task-group-example", \
-                "yunikorn.apache.org/task-groups": "[{ \
-                  \\"name\\": \\"task-group-example\\", \
-                  \\"minMember\\": 2, \
-                  \\"minResource\\": { \
-                    \\"cpu\\": %s, \
-                    \\"memory\\": %sGi, \
-                    \\"nvidia.com/gpu\\": %s \
-                  }, \
-                  \\"nodeSelector\\": {}, \
-                  \\"tolerations\\": [], \
-                  \\"affinity\\": {} \
-                }]" \
+              }, \
+              "labels": { \
+                "pod-group.scheduling.x-k8s.io/name": %s \
               } \
             }, \
             "spec": { \
@@ -150,7 +150,7 @@ def custom_pipeline(namespace: str, image: str, command: str, num_worker: int, c
                 { \
                   "name": "deepspeed", \
                   "image": "%s", \
-                  "command": ["/bin/bash", "-c", "%s"], \
+                  "command": ["/bin/bash", "-c", "sleep 864000"], \
                   "resources": { \
                     "limits": { \
                       "cpu": %s, \
@@ -176,11 +176,11 @@ def custom_pipeline(namespace: str, image: str, command: str, num_worker: int, c
               ] \
             } \
           } \
-        }' % (num_worker, cpu_per_worker, memory_per_worker, gpu_per_worker, image, command, cpu_per_worker, memory_per_worker, gpu_per_worker),
+        }' % (num_worker, name, image, cpu_per_worker, memory_per_worker, gpu_per_worker),
         delete_after_done=True
     )
     handle_exit = clear_mpijob_op(
-      name='deepspeed-cnn-dist-job',
+      name=name,
       namespace=namespace,
       version='v1'
     )

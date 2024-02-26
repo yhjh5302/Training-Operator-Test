@@ -51,7 +51,6 @@ class K8sCR(object):
     for line in stream:
       logger.info(f"{prefix}: {line.decode().strip()}")
     logger.info(f"Stop reading {namespace}/{pod_name} logs")
-      
 
   def wait_for_condition(self,
                          namespace,
@@ -171,3 +170,66 @@ class K8sCR(object):
 
     logger.error("Exception when %s %s/%s: %s", action, self.group, self.plural, message)
     raise ex
+
+
+class K8sPodGroup(object):
+  def __init__(self, client):
+    self.custom_client = k8s_client.CustomObjectsApi(client)
+    self.core_client = k8s_client.CoreV1Api(client)
+    self.group = "scheduling.x-k8s.io"
+    self.version = "v1alpha1"
+    self.plural = "podgroups"
+
+  def create(self, name, namespace, num_pod, schedule_timeout_seconds):
+    body = {
+      "scheduleTimeoutSeconds": schedule_timeout_seconds,
+      "minMember": num_pod,
+    }
+    try:
+      logger.info("Creating podgroup %s in namespace %s.", name, namespace)
+      api_response = self.custom_client.create_namespaced_custom_object(
+        group=self.group,
+        version=self.version,
+        namespace=namespace,
+        plural=self.plural,
+        name=name,
+        body=body)
+      logger.info("Created podgroup %s in namespace %s.", name, namespace)
+      return api_response
+    except rest.ApiException as e:
+      self._log_and_raise_exception(e, "create")
+
+  def delete(self, name, namespace):
+    try:
+      body = {
+        # Set garbage collection so that CR won't be deleted until all
+        # owned references are deleted.
+        "propagationPolicy": "Foreground",
+      }
+      logger.info("Deleteing podgroup %s in namespace %s.", name, namespace)
+      api_response = self.custom_client.delete_namespaced_custom_object(
+        group=self.group,
+        version=self.version,
+        namespace=namespace,
+        plural=self.plural,
+        name=name,
+        body=body)
+      logger.info("Deleted podgroup %s in namespace %s.", name, namespace)
+      return api_response
+    except rest.ApiException as e:
+      self._log_and_raise_exception(e, "delete")
+
+  def _log_and_raise_exception(self, ex, action):
+    message = ""
+    if getattr(ex, "message", None):
+      message = ex.message
+    if getattr(ex, "body", None):
+      try:
+        body = json.loads(ex.body)
+        message = body.get("message")
+      except ValueError:
+        logger.error("Exception when %s podgroup: %s", action, ex.body)
+        return
+
+    logger.error("Exception when %s podgroup: %s", action, message)
+    return

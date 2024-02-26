@@ -2,9 +2,10 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: launch-kubeflow-pytorchjob-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-02-21T04:44:53.169095',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-02-26T08:50:16.470727',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "An example to launch pytorch.",
-      "inputs": [{"description": "Image registry for workers (string)", "name": "image",
+      "inputs": [{"name": "name", "type": "String"}, {"name": "namespace", "type":
+      "String"}, {"description": "Image registry for workers (string)", "name": "image",
       "type": "String"}, {"description": "Command for workers (string)", "name": "command",
       "type": "String"}, {"description": "Number of workers (integer)", "name": "num_worker",
       "type": "Integer"}, {"description": "CPU allocation per worker (integer: Cores)",
@@ -18,7 +19,8 @@ spec:
   templates:
   - name: clear-pytorchjob
     container:
-      args: [--name, pytorch-cnn-dist-job, --namespace, yhjin, --version, v1]
+      args: [--name, pytorch-cnn-dist-job, --namespace, '{{inputs.parameters.namespace}}',
+        --version, v1]
       command:
       - sh
       - -c
@@ -34,6 +36,7 @@ spec:
       - |
         def Clear_PyTorchJob(name, namespace, version="v1"):
             import kubernetes
+            kubernetes.config.load_incluster_config()
             api_instance = kubernetes.client.CustomObjectsApi()
             group = "kubeflow.org"
             plural = "pytorchjobs"
@@ -46,10 +49,10 @@ spec:
                     plural=plural,
                     body=kubernetes.client.models.V1DeleteOptions(
                         propagation_policy='Foreground',
-                        grace_period_seconds=5
+                        grace_period_seconds=15
                     )
                 )
-                print("PyTorchJob deleted. Status='%s'" % str(api_response.status))
+                print("PyTorchJob deleted. Status='%s'" % str(api_response.get("status", None)))
             except kubernetes.client.rest.ApiException as e:
                 print("Exception when calling CustomObjectsApi->delete_namespaced_custom_object: %s\n" % e)
 
@@ -62,6 +65,9 @@ spec:
 
         _outputs = Clear_PyTorchJob(**_parsed_args)
       image: python:3.7
+    inputs:
+      parameters:
+      - {name: namespace}
     metadata:
       labels:
         pipelines.kubeflow.org/kfp_sdk_version: 1.8.22
@@ -75,33 +81,38 @@ spec:
           || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
           ''kubernetes'' --user) && \"$0\" \"$@\"", "sh", "-ec", "program_path=$(mktemp)\nprintf
           \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
-          "def Clear_PyTorchJob(name, namespace, version=\"v1\"):\n    import kubernetes\n    api_instance
+          "def Clear_PyTorchJob(name, namespace, version=\"v1\"):\n    import kubernetes\n    kubernetes.config.load_incluster_config()\n    api_instance
           = kubernetes.client.CustomObjectsApi()\n    group = \"kubeflow.org\"\n    plural
-          = \"pytorchjobs\"\n    try:\n        api_response = api_instance.delete_namespaced_custom_object(\n            name=name,\n            namespace=namespace,\n            group=group,\n            version=version,\n            plural=plural,\n            body=kubernetes.client.models.V1DeleteOptions(\n                propagation_policy=''Foreground'',\n                grace_period_seconds=5\n            )\n        )\n        print(\"PyTorchJob
-          deleted. Status=''%s''\" % str(api_response.status))\n    except kubernetes.client.rest.ApiException
-          as e:\n        print(\"Exception when calling CustomObjectsApi->delete_namespaced_custom_object:
-          %s\\n\" % e)\n\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Clear
-          PyTorchJob'', description='''')\n_parser.add_argument(\"--name\", dest=\"name\",
-          type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--namespace\",
+          = \"pytorchjobs\"\n    try:\n        api_response = api_instance.delete_namespaced_custom_object(\n            name=name,\n            namespace=namespace,\n            group=group,\n            version=version,\n            plural=plural,\n            body=kubernetes.client.models.V1DeleteOptions(\n                propagation_policy=''Foreground'',\n                grace_period_seconds=15\n            )\n        )\n        print(\"PyTorchJob
+          deleted. Status=''%s''\" % str(api_response.get(\"status\", None)))\n    except
+          kubernetes.client.rest.ApiException as e:\n        print(\"Exception when
+          calling CustomObjectsApi->delete_namespaced_custom_object: %s\\n\" % e)\n\nimport
+          argparse\n_parser = argparse.ArgumentParser(prog=''Clear PyTorchJob'', description='''')\n_parser.add_argument(\"--name\",
+          dest=\"name\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--namespace\",
           dest=\"namespace\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--version\",
           dest=\"version\", type=str, required=False, default=argparse.SUPPRESS)\n_parsed_args
           = vars(_parser.parse_args())\n\n_outputs = Clear_PyTorchJob(**_parsed_args)\n"],
           "image": "python:3.7"}}, "inputs": [{"name": "name"}, {"name": "namespace"},
           {"default": "v1", "name": "version", "optional": true}], "name": "Clear
           PyTorchJob"}', pipelines.kubeflow.org/component_ref: '{}', pipelines.kubeflow.org/arguments.parameters: '{"name":
-          "pytorch-cnn-dist-job", "namespace": "yhjin", "version": "v1"}'}
+          "pytorch-cnn-dist-job", "namespace": "{{inputs.parameters.namespace}}",
+          "version": "v1"}'}
   - name: launch-kubeflow-pytorchjob
     inputs:
       parameters:
       - {name: cpu_per_worker}
       - {name: gpu_per_worker}
       - {name: memory_per_worker}
+      - {name: namespace}
       - {name: num_worker}
     dag:
       tasks:
       - name: clear-pytorchjob
         template: clear-pytorchjob
         dependencies: [pytorchjob-launcher]
+        arguments:
+          parameters:
+          - {name: namespace, value: '{{inputs.parameters.namespace}}'}
       - name: pytorchjob-launcher
         template: pytorchjob-launcher
         arguments:
@@ -109,6 +120,7 @@ spec:
           - {name: cpu_per_worker, value: '{{inputs.parameters.cpu_per_worker}}'}
           - {name: gpu_per_worker, value: '{{inputs.parameters.gpu_per_worker}}'}
           - {name: memory_per_worker, value: '{{inputs.parameters.memory_per_worker}}'}
+          - {name: namespace, value: '{{inputs.parameters.namespace}}'}
           - {name: num_worker, value: '{{inputs.parameters.num_worker}}'}
   - name: pytorchjob-launcher
     container:
@@ -116,24 +128,18 @@ spec:
       - --name
       - pytorch-cnn-dist-job
       - --namespace
-      - yhjin
+      - '{{inputs.parameters.namespace}}'
       - --version
       - v1
       - --masterSpec
       - '{           "replicas": 1,           "restartPolicy": "Never",           "template":
         {             "metadata": {               "annotations": {                 "sidecar.istio.io/inject":
-        "false",                 "yunikorn.apache.org/task-group-name": "task-group-example",                 "yunikorn.apache.org/task-groups":
-        "[{                   \"name\": \"task-group-example\",                   \"minMember\":
-        2,                   \"minResource\": {                     \"cpu\": {{inputs.parameters.cpu_per_worker}},                     \"memory\":
-        {{inputs.parameters.memory_per_worker}}Gi,                     \"nvidia.com/gpu\":
-        {{inputs.parameters.gpu_per_worker}}                   },                   \"nodeSelector\":
-        {},                   \"tolerations\": [],                   \"affinity\":
-        {}                 }]"               }             },             "spec":
-        {               "containers": [                 {                   "name":
-        "pytorch",                   "image": "yhjh5302/pytorchjob-test:latest",                   "command":
-        ["/bin/bash", "-c", "cd /workspace && python3 pytorchjob_train.py --batch_size=1
-        --backend=gloo"],                   "resources": {                     "limits":
-        {                       "cpu": {{inputs.parameters.cpu_per_worker}},                       "memory":
+        "false",               },               "labels": {                 "pod-group.scheduling.x-k8s.io/name":
+        pytorch-cnn-dist-job               }             },             "spec": {               "containers":
+        [                 {                   "name": "pytorch",                   "image":
+        "yhjh5302/pytorchjob-test:latest",                   "command": ["/bin/bash",
+        "-c", "cd /workspace && python3 pytorchjob_train.py --batch_size=1 --backend=gloo"],                   "resources":
+        {                     "limits": {                       "cpu": {{inputs.parameters.cpu_per_worker}},                       "memory":
         {{inputs.parameters.memory_per_worker}}Gi,                       "nvidia.com/gpu":
         {{inputs.parameters.gpu_per_worker}}                     }                   },                   "volumeMounts":
         [                     {                         "name": "dshm",                         "mountPath":
@@ -143,14 +149,8 @@ spec:
       - --workerSpec
       - '{           "replicas": {{inputs.parameters.num_worker}},           "restartPolicy":
         "Never",           "template": {             "metadata": {               "annotations":
-        {                 "sidecar.istio.io/inject": "false",                 "yunikorn.apache.org/task-group-name":
-        "task-group-example",                 "yunikorn.apache.org/task-groups": "[{                   \"name\":
-        \"task-group-example\",                   \"minMember\": 2,                   \"minResource\":
-        {                     \"cpu\": {{inputs.parameters.cpu_per_worker}},                     \"memory\":
-        {{inputs.parameters.memory_per_worker}}Gi,                     \"nvidia.com/gpu\":
-        {{inputs.parameters.gpu_per_worker}}                   },                   \"nodeSelector\":
-        {},                   \"tolerations\": [],                   \"affinity\":
-        {}                 }]"               }             },             "spec":
+        {                 "sidecar.istio.io/inject": "false",               },               "labels":
+        {                 "pod-group.scheduling.x-k8s.io/name": pytorch-cnn-dist-job               }             },             "spec":
         {               "containers": [                 {                   "name":
         "pytorch",                   "image": "yhjh5302/pytorchjob-test:latest",                   "command":
         ["/bin/bash", "-c", "cd /workspace && python3 pytorchjob_train.py --batch_size=1
@@ -175,6 +175,7 @@ spec:
       - {name: cpu_per_worker}
       - {name: gpu_per_worker}
       - {name: memory_per_worker}
+      - {name: namespace}
       - {name: num_worker}
     metadata:
       labels:
@@ -220,14 +221,8 @@ spec:
           "Running", "delete_after_done": "True", "job_timeout_minutes": "1440", "master_spec":
           "{           \"replicas\": 1,           \"restartPolicy\": \"Never\",           \"template\":
           {             \"metadata\": {               \"annotations\": {                 \"sidecar.istio.io/inject\":
-          \"false\",                 \"yunikorn.apache.org/task-group-name\": \"task-group-example\",                 \"yunikorn.apache.org/task-groups\":
-          \"[{                   \\\"name\\\": \\\"task-group-example\\\",                   \\\"minMember\\\":
-          2,                   \\\"minResource\\\": {                     \\\"cpu\\\":
-          {{inputs.parameters.cpu_per_worker}},                     \\\"memory\\\":
-          {{inputs.parameters.memory_per_worker}}Gi,                     \\\"nvidia.com/gpu\\\":
-          {{inputs.parameters.gpu_per_worker}}                   },                   \\\"nodeSelector\\\":
-          {},                   \\\"tolerations\\\": [],                   \\\"affinity\\\":
-          {}                 }]\"               }             },             \"spec\":
+          \"false\",               },               \"labels\": {                 \"pod-group.scheduling.x-k8s.io/name\":
+          pytorch-cnn-dist-job               }             },             \"spec\":
           {               \"containers\": [                 {                   \"name\":
           \"pytorch\",                   \"image\": \"yhjh5302/pytorchjob-test:latest\",                   \"command\":
           [\"/bin/bash\", \"-c\", \"cd /workspace && python3 pytorchjob_train.py --batch_size=1
@@ -239,18 +234,11 @@ spec:
           \"/dev/shm\"                     }                   ]                 }               ],               \"volumes\":
           [                 {                   \"name\": \"dshm\",                   \"emptyDir\":
           {                     \"medium\": \"Memory\"                   }                 }               ]             }           }         }",
-          "name": "pytorch-cnn-dist-job", "namespace": "yhjin", "version": "v1", "worker_spec":
-          "{           \"replicas\": {{inputs.parameters.num_worker}},           \"restartPolicy\":
+          "name": "pytorch-cnn-dist-job", "namespace": "{{inputs.parameters.namespace}}",
+          "version": "v1", "worker_spec": "{           \"replicas\": {{inputs.parameters.num_worker}},           \"restartPolicy\":
           \"Never\",           \"template\": {             \"metadata\": {               \"annotations\":
-          {                 \"sidecar.istio.io/inject\": \"false\",                 \"yunikorn.apache.org/task-group-name\":
-          \"task-group-example\",                 \"yunikorn.apache.org/task-groups\":
-          \"[{                   \\\"name\\\": \\\"task-group-example\\\",                   \\\"minMember\\\":
-          2,                   \\\"minResource\\\": {                     \\\"cpu\\\":
-          {{inputs.parameters.cpu_per_worker}},                     \\\"memory\\\":
-          {{inputs.parameters.memory_per_worker}}Gi,                     \\\"nvidia.com/gpu\\\":
-          {{inputs.parameters.gpu_per_worker}}                   },                   \\\"nodeSelector\\\":
-          {},                   \\\"tolerations\\\": [],                   \\\"affinity\\\":
-          {}                 }]\"               }             },             \"spec\":
+          {                 \"sidecar.istio.io/inject\": \"false\",               },               \"labels\":
+          {                 \"pod-group.scheduling.x-k8s.io/name\": pytorch-cnn-dist-job               }             },             \"spec\":
           {               \"containers\": [                 {                   \"name\":
           \"pytorch\",                   \"image\": \"yhjh5302/pytorchjob-test:latest\",                   \"command\":
           [\"/bin/bash\", \"-c\", \"cd /workspace && python3 pytorchjob_train.py --batch_size=1
@@ -264,6 +252,8 @@ spec:
           {                     \"medium\": \"Memory\"                   }                 }               ]             }           }         }"}'}
   arguments:
     parameters:
+    - {name: name}
+    - {name: namespace}
     - {name: image}
     - {name: command}
     - {name: num_worker}

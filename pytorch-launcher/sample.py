@@ -21,6 +21,7 @@ def get_current_namespace():
 
 def Clear_PyTorchJob(name, namespace, version="v1"):
     import kubernetes
+    kubernetes.config.load_incluster_config()
     api_instance = kubernetes.client.CustomObjectsApi()
     group = "kubeflow.org"
     plural = "pytorchjobs"
@@ -33,10 +34,10 @@ def Clear_PyTorchJob(name, namespace, version="v1"):
             plural=plural,
             body=kubernetes.client.models.V1DeleteOptions(
                 propagation_policy='Foreground',
-                grace_period_seconds=5
+                grace_period_seconds=15
             )
         )
-        print("PyTorchJob deleted. Status='%s'" % str(api_response.status))
+        print("PyTorchJob deleted. Status='%s'" % str(api_response.get("status", None)))
     except kubernetes.client.rest.ApiException as e:
         print("Exception when calling CustomObjectsApi->delete_namespaced_custom_object: %s\n" % e)
 
@@ -48,7 +49,7 @@ clear_pytorchjob_op = components.func_to_container_op(func=Clear_PyTorchJob, pac
     name="launch-kubeflow-pytorchjob",
     description="An example to launch pytorch.",
 )
-def custom_pipeline(namespace: str, image: str, command: str, num_worker: int, cpu_per_worker: int, memory_per_worker: int, gpu_per_worker: int) -> None:
+def custom_pipeline(name: str, namespace: str, image: str, command: str, num_worker: int, cpu_per_worker: int, memory_per_worker: int, gpu_per_worker: int) -> None:
     """
     Run MPI-Job
     Args:
@@ -64,10 +65,12 @@ def custom_pipeline(namespace: str, image: str, command: str, num_worker: int, c
 
     # PyTorchJob Test
     pytorch_job_op = components.load_component_from_file('./pytorch_job_component.yaml')
+    name: str = 'pytorch-cnn-dist-job'
     image: str = 'yhjh5302/pytorchjob-test:latest'
     command: str = 'cd /workspace && python3 pytorchjob_train.py --batch_size=1 --backend=gloo'
+    
     train_task = pytorch_job_op(
-        name='pytorch-cnn-dist-job',
+        name=name,
         namespace=namespace,
         master_spec='{ \
           "replicas": 1, \
@@ -76,19 +79,9 @@ def custom_pipeline(namespace: str, image: str, command: str, num_worker: int, c
             "metadata": { \
               "annotations": { \
                 "sidecar.istio.io/inject": "false", \
-                "yunikorn.apache.org/task-group-name": "task-group-example", \
-                "yunikorn.apache.org/task-groups": "[{ \
-                  \\"name\\": \\"task-group-example\\", \
-                  \\"minMember\\": 2, \
-                  \\"minResource\\": { \
-                    \\"cpu\\": %s, \
-                    \\"memory\\": %sGi, \
-                    \\"nvidia.com/gpu\\": %s \
-                  }, \
-                  \\"nodeSelector\\": {}, \
-                  \\"tolerations\\": [], \
-                  \\"affinity\\": {} \
-                }]" \
+              }, \
+              "labels": { \
+                "pod-group.scheduling.x-k8s.io/name": %s \
               } \
             }, \
             "spec": { \
@@ -122,7 +115,7 @@ def custom_pipeline(namespace: str, image: str, command: str, num_worker: int, c
               ] \
             } \
           } \
-        }' % (cpu_per_worker, memory_per_worker, gpu_per_worker, image, command, cpu_per_worker, memory_per_worker, gpu_per_worker),
+        }' % (name, image, command, cpu_per_worker, memory_per_worker, gpu_per_worker),
         worker_spec='{ \
           "replicas": %s, \
           "restartPolicy": "Never", \
@@ -130,19 +123,9 @@ def custom_pipeline(namespace: str, image: str, command: str, num_worker: int, c
             "metadata": { \
               "annotations": { \
                 "sidecar.istio.io/inject": "false", \
-                "yunikorn.apache.org/task-group-name": "task-group-example", \
-                "yunikorn.apache.org/task-groups": "[{ \
-                  \\"name\\": \\"task-group-example\\", \
-                  \\"minMember\\": 2, \
-                  \\"minResource\\": { \
-                    \\"cpu\\": %s, \
-                    \\"memory\\": %sGi, \
-                    \\"nvidia.com/gpu\\": %s \
-                  }, \
-                  \\"nodeSelector\\": {}, \
-                  \\"tolerations\\": [], \
-                  \\"affinity\\": {} \
-                }]" \
+              }, \
+              "labels": { \
+                "pod-group.scheduling.x-k8s.io/name": %s \
               } \
             }, \
             "spec": { \
@@ -176,11 +159,11 @@ def custom_pipeline(namespace: str, image: str, command: str, num_worker: int, c
               ] \
             } \
           } \
-        }' % (num_worker, cpu_per_worker, memory_per_worker, gpu_per_worker, image, command, cpu_per_worker, memory_per_worker, gpu_per_worker),
+        }' % (num_worker, name, image, command, cpu_per_worker, memory_per_worker, gpu_per_worker),
         delete_after_done=True
     )
     handle_exit = clear_pytorchjob_op(
-      name='pytorch-cnn-dist-job',
+      name=name,
       namespace=namespace,
       version='v1'
     )
