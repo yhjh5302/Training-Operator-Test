@@ -149,12 +149,23 @@ def main(args):
     logger.info("Submitting CR.")
     create_response = launcher_client.create(serialized_job)
 
+    podgroup_client = launch_crd.K8sPodGroup(client=api_client)
+
+    logger.info("Submitting PodGroups.")
+    num_workers = extract_replicas(args.workerSpec)
+    num_pod = num_workers + 1
+    create_response = podgroup_client.create(
+        name=f"{args.name}",
+        namespace=args.namespace,
+        num_pod=num_pod,
+        schedule_timeout_seconds=3600
+    )
+
     expected_conditions = ["Succeeded", "Failed"]
     logger.info(
         f"Monitoring job until status is any of {expected_conditions}."
     )
 
-    num_workers = extract_replicas(args.workerSpec)
     tracking_pod_list = [(f"{args.name}-master-0", "master-0")] \
                       + [(f"{args.name}-worker-{index}", f"worker-{index}") for index in range(num_workers)]
 

@@ -194,7 +194,7 @@ def main(args):
         name=f"{args.name}",
         namespace=args.namespace,
         num_pod=num_pod,
-        schedule_timeout_seconds=15
+        schedule_timeout_seconds=3600
     )
 
     expected_conditions = ["Succeeded", "Failed"]
