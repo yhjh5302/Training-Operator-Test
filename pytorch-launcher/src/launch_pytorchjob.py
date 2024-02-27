@@ -58,6 +58,9 @@ def get_arg_parser():
     parser.add_argument("--version", type=str,
                         default="v1",
                         help="Job version.")
+    parser.add_argument("--scheduleTimeoutSeconds", type=int,
+                        default=60*60*24,
+                        help="Time in seconds to wait for the Job to reach end")
     parser.add_argument("--activeDeadlineSeconds", type=int,
                         default=None,
                         help="Specifies the duration (in seconds) since startTime during which the job can remain active before it is terminated. Must be a positive integer. This setting applies only to pods where restartPolicy is OnFailure or Always.")
@@ -80,7 +83,7 @@ def get_arg_parser():
                         default=True,
                         help="When Job done, delete the Job automatically if it is True.")
     parser.add_argument("--jobTimeoutMinutes", type=int,
-                        default=60*24,
+                        default=60*24*3,
                         help="Time in minutes to wait for the Job to reach end")
 
     # Options that likely wont be used, but left here for future use
@@ -158,7 +161,7 @@ def main(args):
         name=f"{args.name}",
         namespace=args.namespace,
         num_pod=num_pod,
-        schedule_timeout_seconds=3600
+        schedule_timeout_seconds=args.scheduleTimeoutSeconds
     )
 
     expected_conditions = ["Succeeded", "Failed"]

@@ -92,9 +92,9 @@ def custom_pipeline(
 
     # MPI-Job Test
     mpi_job_op = components.load_component_from_file('./mpi_job_component.yaml')
-    name: str = 'deepspeed-cnn-dist-job'
-    image: str = 'yhjh5302/deepspeed-test:latest'
-    command: str = '/usr/sbin/sshd && deepspeed -H /etc/mpi/hostfile deepspeed_train.py --deepspeed --deepspeed_config config.json'
+    # name: str = 'deepspeed-cnn-dist-job'
+    # image: str = 'yhjh5302/deepspeed-test:latest'
+    # command: str = '/usr/sbin/sshd && deepspeed -H /etc/mpi/hostfile deepspeed_train.py --deepspeed --deepspeed_config config.json'
 
     handle_exit = clear_mpijob_op(
         name=name,

@@ -67,9 +67,9 @@ def custom_pipeline(name: str, namespace: str, image: str, command: str, num_wor
 
     # PyTorchJob Test
     pytorch_job_op = components.load_component_from_file('./pytorch_job_component.yaml')
-    name: str = 'pytorch-cnn-dist-job'
-    image: str = 'yhjh5302/pytorchjob-test:latest'
-    command: str = 'cd /workspace && python3 pytorchjob_train.py --batch_size=1 --backend=gloo'
+    # name: str = 'pytorch-cnn-dist-job'
+    # image: str = 'yhjh5302/pytorchjob-test:latest'
+    # command: str = 'cd /workspace && python3 pytorchjob_train.py --batch_size=1 --backend=gloo'
 
     handle_exit = clear_pytorchjob_op(
         name=name,

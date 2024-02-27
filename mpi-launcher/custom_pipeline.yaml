@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: launch-kubeflow-mpi-job-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-02-27T07:53:38.010980',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-02-27T08:14:16.897396',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "An example to launch deepspeed.",
       "inputs": [{"default": "", "description": "Name for MPI-Job (string)", "name":
       "name", "optional": true, "type": "String"}, {"default": "", "description":
@@ -23,7 +23,7 @@ spec:
   templates:
   - name: clear-mpi-job
     container:
-      args: [--name, deepspeed-cnn-dist-job, --namespace, '{{inputs.parameters.namespace}}',
+      args: [--name, '{{inputs.parameters.name}}', --namespace, '{{inputs.parameters.namespace}}',
         --num-worker, '{{inputs.parameters.num_worker}}', --version, v1]
       command:
       - sh
@@ -88,6 +88,7 @@ spec:
       image: python:3.7
     inputs:
       parameters:
+      - {name: name}
       - {name: namespace}
       - {name: num_worker}
     metadata:
@@ -135,15 +136,18 @@ spec:
           "image": "python:3.7"}}, "inputs": [{"name": "name"}, {"name": "namespace"},
           {"name": "num_worker"}, {"default": "v1", "name": "version", "optional":
           true}], "name": "Clear MPI Job"}', pipelines.kubeflow.org/component_ref: '{}',
-        pipelines.kubeflow.org/arguments.parameters: '{"name": "deepspeed-cnn-dist-job",
+        pipelines.kubeflow.org/arguments.parameters: '{"name": "{{inputs.parameters.name}}",
           "namespace": "{{inputs.parameters.namespace}}", "num_worker": "{{inputs.parameters.num_worker}}",
           "version": "v1"}'}
   - name: exit-handler-1
     inputs:
       parameters:
+      - {name: command}
       - {name: cpu_per_worker}
       - {name: gpu_per_worker}
+      - {name: image}
       - {name: memory_per_worker}
+      - {name: name}
       - {name: namespace}
       - {name: num_worker}
     dag:
@@ -152,17 +156,23 @@ spec:
         template: mpi-job-launcher
         arguments:
           parameters:
+          - {name: command, value: '{{inputs.parameters.command}}'}
           - {name: cpu_per_worker, value: '{{inputs.parameters.cpu_per_worker}}'}
           - {name: gpu_per_worker, value: '{{inputs.parameters.gpu_per_worker}}'}
+          - {name: image, value: '{{inputs.parameters.image}}'}
           - {name: memory_per_worker, value: '{{inputs.parameters.memory_per_worker}}'}
+          - {name: name, value: '{{inputs.parameters.name}}'}
           - {name: namespace, value: '{{inputs.parameters.namespace}}'}
           - {name: num_worker, value: '{{inputs.parameters.num_worker}}'}
   - name: launch-kubeflow-mpi-job
     inputs:
       parameters:
+      - {name: command}
       - {name: cpu_per_worker}
       - {name: gpu_per_worker}
+      - {name: image}
       - {name: memory_per_worker}
+      - {name: name}
       - {name: namespace}
       - {name: num_worker}
     dag:
@@ -171,23 +181,25 @@ spec:
         template: exit-handler-1
         arguments:
           parameters:
+          - {name: command, value: '{{inputs.parameters.command}}'}
           - {name: cpu_per_worker, value: '{{inputs.parameters.cpu_per_worker}}'}
           - {name: gpu_per_worker, value: '{{inputs.parameters.gpu_per_worker}}'}
+          - {name: image, value: '{{inputs.parameters.image}}'}
           - {name: memory_per_worker, value: '{{inputs.parameters.memory_per_worker}}'}
+          - {name: name, value: '{{inputs.parameters.name}}'}
           - {name: namespace, value: '{{inputs.parameters.namespace}}'}
           - {name: num_worker, value: '{{inputs.parameters.num_worker}}'}
   - name: mpi-job-launcher
     container:
-      args: [--name, deepspeed-cnn-dist-job, --namespace, '{{inputs.parameters.namespace}}',
+      args: [--name, '{{inputs.parameters.name}}', --namespace, '{{inputs.parameters.namespace}}',
         --version, v1, --launcherSpec, '{               "replicas": 1,               "restartPolicy":
           "Never",               "template": {                 "metadata": {                   "annotations":
           {                     "sidecar.istio.io/inject": "false"                   },                   "labels":
           {                     "app": "yunikorn",                     "scheduling.x-k8s.io/pod-group":
-          deepspeed-cnn-dist-job                   }                 },                 "spec":
+          {{inputs.parameters.name}}                   }                 },                 "spec":
           {                   "containers": [                     {                       "name":
-          "deepspeed",                       "image": "yhjh5302/deepspeed-test:latest",                       "command":
-          ["/bin/bash", "-c", "/usr/sbin/sshd && deepspeed -H /etc/mpi/hostfile deepspeed_train.py
-          --deepspeed --deepspeed_config config.json"],                       "resources":
+          "deepspeed",                       "image": "{{inputs.parameters.image}}",                       "command":
+          ["/bin/bash", "-c", "{{inputs.parameters.command}}"],                       "resources":
           {                         "limits": {                           "cpu": {{inputs.parameters.cpu_per_worker}},                           "memory":
           {{inputs.parameters.memory_per_worker}}Gi,                           "nvidia.com/gpu":
           {{inputs.parameters.gpu_per_worker}}                         }                       },                       "volumeMounts":
@@ -200,9 +212,9 @@ spec:
           "Never",               "template": {                 "metadata": {                   "annotations":
           {                     "sidecar.istio.io/inject": "false"                   },                   "labels":
           {                     "app": "yunikorn",                     "scheduling.x-k8s.io/pod-group":
-          deepspeed-cnn-dist-job                   }                 },                 "spec":
+          {{inputs.parameters.name}}                   }                 },                 "spec":
           {                   "containers": [                     {                       "name":
-          "deepspeed",                       "image": "yhjh5302/deepspeed-test:latest",                       "command":
+          "deepspeed",                       "image": "{{inputs.parameters.image}}",                       "command":
           ["/bin/bash", "-c", "sleep 864000"],                       "resources":
           {                         "limits": {                           "cpu": {{inputs.parameters.cpu_per_worker}},                           "memory":
           {{inputs.parameters.memory_per_worker}}Gi,                           "nvidia.com/gpu":
@@ -218,9 +230,12 @@ spec:
       image: yhjh5302/kubeflow-mpi-job-launcher:v1
     inputs:
       parameters:
+      - {name: command}
       - {name: cpu_per_worker}
       - {name: gpu_per_worker}
+      - {name: image}
       - {name: memory_per_worker}
+      - {name: name}
       - {name: namespace}
       - {name: num_worker}
       artifacts:
@@ -280,11 +295,10 @@ spec:
           \"Never\",               \"template\": {                 \"metadata\": {                   \"annotations\":
           {                     \"sidecar.istio.io/inject\": \"false\"                   },                   \"labels\":
           {                     \"app\": \"yunikorn\",                     \"scheduling.x-k8s.io/pod-group\":
-          deepspeed-cnn-dist-job                   }                 },                 \"spec\":
+          {{inputs.parameters.name}}                   }                 },                 \"spec\":
           {                   \"containers\": [                     {                       \"name\":
-          \"deepspeed\",                       \"image\": \"yhjh5302/deepspeed-test:latest\",                       \"command\":
-          [\"/bin/bash\", \"-c\", \"/usr/sbin/sshd && deepspeed -H /etc/mpi/hostfile
-          deepspeed_train.py --deepspeed --deepspeed_config config.json\"],                       \"resources\":
+          \"deepspeed\",                       \"image\": \"{{inputs.parameters.image}}\",                       \"command\":
+          [\"/bin/bash\", \"-c\", \"{{inputs.parameters.command}}\"],                       \"resources\":
           {                         \"limits\": {                           \"cpu\":
           {{inputs.parameters.cpu_per_worker}},                           \"memory\":
           {{inputs.parameters.memory_per_worker}}Gi,                           \"nvidia.com/gpu\":
@@ -294,15 +308,15 @@ spec:
           [                     {                       \"name\": \"dshm\",                       \"emptyDir\":
           {                         \"medium\": \"Memory\"                       }                     }                   ],                   \"schedulerName\":
           \"scheduler-plugins-scheduler\"                 }               }             }",
-          "name": "deepspeed-cnn-dist-job", "namespace": "{{inputs.parameters.namespace}}",
+          "name": "{{inputs.parameters.name}}", "namespace": "{{inputs.parameters.namespace}}",
           "schedule_timeout_seconds": "1440", "scheduling_policy": "{}", "version":
           "v1", "worker_spec": "{               \"replicas\": {{inputs.parameters.num_worker}},               \"restartPolicy\":
           \"Never\",               \"template\": {                 \"metadata\": {                   \"annotations\":
           {                     \"sidecar.istio.io/inject\": \"false\"                   },                   \"labels\":
           {                     \"app\": \"yunikorn\",                     \"scheduling.x-k8s.io/pod-group\":
-          deepspeed-cnn-dist-job                   }                 },                 \"spec\":
+          {{inputs.parameters.name}}                   }                 },                 \"spec\":
           {                   \"containers\": [                     {                       \"name\":
-          \"deepspeed\",                       \"image\": \"yhjh5302/deepspeed-test:latest\",                       \"command\":
+          \"deepspeed\",                       \"image\": \"{{inputs.parameters.image}}\",                       \"command\":
           [\"/bin/bash\", \"-c\", \"sleep 864000\"],                       \"resources\":
           {                         \"limits\": {                           \"cpu\":
           {{inputs.parameters.cpu_per_worker}},                           \"memory\":
