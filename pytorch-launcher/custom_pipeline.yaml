@@ -2,18 +2,22 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: launch-kubeflow-pytorchjob-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-02-27T08:14:21.924489',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-02-27T08:19:25.948357',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "An example to launch pytorch.",
-      "inputs": [{"description": "Name for PyTorchJob (string)", "name": "name", "type":
-      "String"}, {"description": "Namespace for PyTorchJob (string)", "name": "namespace",
-      "type": "String"}, {"description": "Image registry for workers (string)", "name":
-      "image", "type": "String"}, {"description": "Command for workers (string)",
-      "name": "command", "type": "String"}, {"description": "Number of workers (integer)",
-      "name": "num_worker", "type": "Integer"}, {"description": "CPU allocation per
-      worker (integer: Cores)", "name": "cpu_per_worker", "type": "Integer"}, {"description":
-      "Memory allocation per worker (integer: GiB)", "name": "memory_per_worker",
-      "type": "Integer"}, {"description": "GPU allocation per worker (integer)", "name":
-      "gpu_per_worker", "type": "Integer"}], "name": "launch-kubeflow-pytorchjob"}'}
+      "inputs": [{"default": "", "description": "Name for PyTorchJob (string)", "name":
+      "name", "optional": true, "type": "String"}, {"default": "", "description":
+      "Namespace for PyTorchJob (string)", "name": "namespace", "optional": true,
+      "type": "String"}, {"default": "", "description": "Image registry for workers
+      (string)", "name": "image", "optional": true, "type": "String"}, {"default":
+      "", "description": "Command for workers (string)", "name": "command", "optional":
+      true, "type": "String"}, {"default": "3", "description": "Number of workers
+      (integer)", "name": "num_worker", "optional": true, "type": "Integer"}, {"default":
+      "16", "description": "CPU allocation per worker (integer: Cores)", "name": "cpu_per_worker",
+      "optional": true, "type": "Integer"}, {"default": "32", "description": "Memory
+      allocation per worker (integer: GiB)", "name": "memory_per_worker", "optional":
+      true, "type": "Integer"}, {"default": "1", "description": "GPU allocation per
+      worker (integer)", "name": "gpu_per_worker", "optional": true, "type": "Integer"}],
+      "name": "launch-kubeflow-pytorchjob"}'}
   labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22}
 spec:
   entrypoint: launch-kubeflow-pytorchjob
@@ -287,13 +291,13 @@ spec:
           \"scheduler-plugins-scheduler\"                 }               }             }"}'}
   arguments:
     parameters:
-    - {name: name}
-    - {name: namespace}
-    - {name: image}
-    - {name: command}
-    - {name: num_worker}
-    - {name: cpu_per_worker}
-    - {name: memory_per_worker}
-    - {name: gpu_per_worker}
+    - {name: name, value: ''}
+    - {name: namespace, value: ''}
+    - {name: image, value: ''}
+    - {name: command, value: ''}
+    - {name: num_worker, value: '3'}
+    - {name: cpu_per_worker, value: '16'}
+    - {name: memory_per_worker, value: '32'}
+    - {name: gpu_per_worker, value: '1'}
   serviceAccountName: pipeline-runner
   onExit: clear-pytorchjob

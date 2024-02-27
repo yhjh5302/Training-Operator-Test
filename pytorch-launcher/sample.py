@@ -49,7 +49,16 @@ clear_pytorchjob_op = components.func_to_container_op(func=Clear_PyTorchJob, pac
     name="launch-kubeflow-pytorchjob",
     description="An example to launch pytorch.",
 )
-def custom_pipeline(name: str, namespace: str, image: str, command: str, num_worker: int, cpu_per_worker: int, memory_per_worker: int, gpu_per_worker: int) -> None:
+def custom_pipeline(
+        name: str = "",
+        namespace: str = "",
+        image: str = "",
+        command: str = "",
+        num_worker: int = 3,
+        cpu_per_worker: int = 16,
+        memory_per_worker: int = 32,
+        gpu_per_worker: int = 1
+    ) -> None:
     """
     Run PyTorchJob
     Args:

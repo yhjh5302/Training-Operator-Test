@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: launch-kubeflow-mpi-job-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-02-27T08:14:16.897396',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-02-27T08:19:30.612246',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "An example to launch deepspeed.",
       "inputs": [{"default": "", "description": "Name for MPI-Job (string)", "name":
       "name", "optional": true, "type": "String"}, {"default": "", "description":
