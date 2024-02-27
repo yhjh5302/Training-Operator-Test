@@ -51,8 +51,10 @@ clear_pytorchjob_op = components.func_to_container_op(func=Clear_PyTorchJob, pac
 )
 def custom_pipeline(name: str, namespace: str, image: str, command: str, num_worker: int, cpu_per_worker: int, memory_per_worker: int, gpu_per_worker: int) -> None:
     """
-    Run MPI-Job
+    Run PyTorchJob
     Args:
+        name (str): Name for PyTorchJob (string)
+        namespace (str): Namespace for PyTorchJob (string)
         image (str): Image registry for workers (string)
         command (str): Command for workers (string)
         num_worker (int): Number of workers (integer)
@@ -68,122 +70,126 @@ def custom_pipeline(name: str, namespace: str, image: str, command: str, num_wor
     name: str = 'pytorch-cnn-dist-job'
     image: str = 'yhjh5302/pytorchjob-test:latest'
     command: str = 'cd /workspace && python3 pytorchjob_train.py --batch_size=1 --backend=gloo'
-    
-    train_task = pytorch_job_op(
+
+    handle_exit = clear_pytorchjob_op(
         name=name,
         namespace=namespace,
-        master_spec='{ \
-          "replicas": 1, \
-          "restartPolicy": "Never", \
-          "template": { \
-            "metadata": { \
-              "annotations": { \
-                "sidecar.istio.io/inject": "false" \
-              }, \
-              "labels": { \
-                "pod-group.scheduling.x-k8s.io/name": %s \
-              } \
-            }, \
-            "spec": { \
-              "containers": [ \
-                { \
-                  "name": "pytorch", \
-                  "image": "%s", \
-                  "command": ["/bin/bash", "-c", "%s"], \
-                  "resources": { \
-                    "limits": { \
-                      "cpu": %s, \
-                      "memory": %sGi, \
-                      "nvidia.com/gpu": %s \
-                    } \
-                  }, \
-                  "volumeMounts": [ \
-                    { \
-                        "name": "dshm", \
-                        "mountPath": "/dev/shm" \
-                    } \
-                  ] \
-                } \
-              ], \
-              "volumes": [ \
-                { \
-                  "name": "dshm", \
-                  "emptyDir": { \
-                    "medium": "Memory" \
-                  } \
-                } \
-              ] \
-            } \
-          } \
-        }' % (name, image, command, cpu_per_worker, memory_per_worker, gpu_per_worker),
-        worker_spec='{ \
-          "replicas": %s, \
-          "restartPolicy": "Never", \
-          "template": { \
-            "metadata": { \
-              "annotations": { \
-                "sidecar.istio.io/inject": "false" \
-              }, \
-              "labels": { \
-                "pod-group.scheduling.x-k8s.io/name": %s \
-              } \
-            }, \
-            "spec": { \
-              "containers": [ \
-                { \
-                  "name": "pytorch", \
-                  "image": "%s", \
-                  "command": ["/bin/bash", "-c", "%s"], \
-                  "resources": { \
-                    "limits": { \
-                      "cpu": %s, \
-                      "memory": %sGi, \
-                      "nvidia.com/gpu": %s \
-                    } \
-                  }, \
-                  "volumeMounts": [ \
-                    { \
-                        "name": "dshm", \
-                        "mountPath": "/dev/shm" \
-                    } \
-                  ] \
-                } \
-              ], \
-              "volumes": [ \
-                { \
-                  "name": "dshm", \
-                  "emptyDir": { \
-                    "medium": "Memory" \
-                  } \
-                } \
-              ] \
-            } \
-          } \
-        }' % (num_worker, name, image, command, cpu_per_worker, memory_per_worker, gpu_per_worker),
-        delete_after_done=True
+        version='v1'
     )
-    handle_exit = clear_pytorchjob_op(
-      name=name,
-      namespace=namespace,
-      version='v1'
-    )
-    handle_exit.after(train_task)
+    with dsl.ExitHandler(handle_exit):
+        train_task = pytorch_job_op(
+            name=name,
+            namespace=namespace,
+            master_spec='{ \
+              "replicas": 1, \
+              "restartPolicy": "Never", \
+              "template": { \
+                "metadata": { \
+                  "annotations": { \
+                    "sidecar.istio.io/inject": "false" \
+                  }, \
+                  "labels": { \
+                    "app": "yunikorn", \
+                    "scheduling.x-k8s.io/pod-group": %s \
+                  } \
+                }, \
+                "spec": { \
+                  "containers": [ \
+                    { \
+                      "name": "pytorch", \
+                      "image": "%s", \
+                      "command": ["/bin/bash", "-c", "%s"], \
+                      "resources": { \
+                        "limits": { \
+                          "cpu": %s, \
+                          "memory": %sGi, \
+                          "nvidia.com/gpu": %s \
+                        } \
+                      }, \
+                      "volumeMounts": [ \
+                        { \
+                            "name": "dshm", \
+                            "mountPath": "/dev/shm" \
+                        } \
+                      ] \
+                    } \
+                  ], \
+                  "volumes": [ \
+                    { \
+                      "name": "dshm", \
+                      "emptyDir": { \
+                        "medium": "Memory" \
+                      } \
+                    } \
+                  ], \
+                  "schedulerName": "scheduler-plugins-scheduler" \
+                } \
+              } \
+            }' % (name, image, command, cpu_per_worker, memory_per_worker, gpu_per_worker),
+            worker_spec='{ \
+              "replicas": %s, \
+              "restartPolicy": "Never", \
+              "template": { \
+                "metadata": { \
+                  "annotations": { \
+                    "sidecar.istio.io/inject": "false" \
+                  }, \
+                  "labels": { \
+                    "app": "yunikorn", \
+                    "scheduling.x-k8s.io/pod-group": %s \
+                  } \
+                }, \
+                "spec": { \
+                  "containers": [ \
+                    { \
+                      "name": "pytorch", \
+                      "image": "%s", \
+                      "command": ["/bin/bash", "-c", "%s"], \
+                      "resources": { \
+                        "limits": { \
+                          "cpu": %s, \
+                          "memory": %sGi, \
+                          "nvidia.com/gpu": %s \
+                        } \
+                      }, \
+                      "volumeMounts": [ \
+                        { \
+                            "name": "dshm", \
+                            "mountPath": "/dev/shm" \
+                        } \
+                      ] \
+                    } \
+                  ], \
+                  "volumes": [ \
+                    { \
+                      "name": "dshm", \
+                      "emptyDir": { \
+                        "medium": "Memory" \
+                      } \
+                    } \
+                  ], \
+                  "schedulerName": "scheduler-plugins-scheduler" \
+                } \
+              } \
+            }' % (num_worker, name, image, command, cpu_per_worker, memory_per_worker, gpu_per_worker),
+            delete_after_done=True
+        )
 
 
 # credentials = auth.ServiceAccountTokenVolumeCredentials(path=None)
-cookies = 'authservice_session='
-namespace = 'yhjin'
-client = kfp_client(
-    host=f"http://ml-pipeline.kubeflow:8888",
-    namespace=namespace,
-    # credentials=credentials,
-    cookies=cookies,
-)
+# cookies = 'authservice_session='
+# namespace = 'yhjin'
+# client = kfp_client(
+#     host=f"http://ml-pipeline.kubeflow:8888",
+#     namespace=namespace,
+#     # credentials=credentials,
+#     cookies=cookies,
+# )
 
 pipeline_name = 'deepspeed-test'
 pipeline_version_name = f'deepspeed-test-{int(time.time())}'
 compiler.Compiler().compile(custom_pipeline, 'custom_pipeline.yaml')
-try:
-  client.upload_pipeline(pipeline_name=pipeline_name, pipeline_package_path='custom_pipeline.yaml')
-except ApiException:
-  client.upload_pipeline_version(pipeline_name=pipeline_name, pipeline_package_path='custom_pipeline.yaml', pipeline_version_name=pipeline_version_name)
+# try:
+#   client.upload_pipeline(pipeline_name=pipeline_name, pipeline_package_path='custom_pipeline.yaml')
+# except ApiException:
+#   client.upload_pipeline_version(pipeline_name=pipeline_name, pipeline_package_path='custom_pipeline.yaml', pipeline_version_name=pipeline_version_name)

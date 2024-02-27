@@ -2,17 +2,21 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: launch-kubeflow-mpi-job-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-02-26T09:10:17.154256',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-02-27T07:53:38.010980',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "An example to launch deepspeed.",
-      "inputs": [{"name": "name", "type": "String"}, {"name": "namespace", "type":
-      "String"}, {"description": "Image registry for workers (string)", "name": "image",
-      "type": "String"}, {"description": "Command for workers (string)", "name": "command",
-      "type": "String"}, {"description": "Number of workers (integer)", "name": "num_worker",
-      "type": "Integer"}, {"description": "CPU allocation per worker (integer: Cores)",
-      "name": "cpu_per_worker", "type": "Integer"}, {"description": "Memory allocation
-      per worker (integer: GiB)", "name": "memory_per_worker", "type": "Integer"},
-      {"description": "GPU allocation per worker (integer)", "name": "gpu_per_worker",
-      "type": "Integer"}], "name": "launch-kubeflow-mpi-job"}'}
+      "inputs": [{"default": "", "description": "Name for MPI-Job (string)", "name":
+      "name", "optional": true, "type": "String"}, {"default": "", "description":
+      "Namespace for MPI-Job (string)", "name": "namespace", "optional": true, "type":
+      "String"}, {"default": "", "description": "Image registry for workers (string)",
+      "name": "image", "optional": true, "type": "String"}, {"default": "", "description":
+      "Command for workers (string)", "name": "command", "optional": true, "type":
+      "String"}, {"default": "3", "description": "Number of workers (integer)", "name":
+      "num_worker", "optional": true, "type": "Integer"}, {"default": "16", "description":
+      "CPU allocation per worker (integer: Cores)", "name": "cpu_per_worker", "optional":
+      true, "type": "Integer"}, {"default": "32", "description": "Memory allocation
+      per worker (integer: GiB)", "name": "memory_per_worker", "optional": true, "type":
+      "Integer"}, {"default": "1", "description": "GPU allocation per worker (integer)",
+      "name": "gpu_per_worker", "optional": true, "type": "Integer"}], "name": "launch-kubeflow-mpi-job"}'}
   labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22}
 spec:
   entrypoint: launch-kubeflow-mpi-job
@@ -20,7 +24,7 @@ spec:
   - name: clear-mpi-job
     container:
       args: [--name, deepspeed-cnn-dist-job, --namespace, '{{inputs.parameters.namespace}}',
-        --version, v1]
+        --num-worker, '{{inputs.parameters.num_worker}}', --version, v1]
       command:
       - sh
       - -c
@@ -34,7 +38,7 @@ spec:
         printf "%s" "$0" > "$program_path"
         python3 -u "$program_path" "$@"
       - |
-        def Clear_MPI_Job(name, namespace, version):
+        def Clear_MPI_Job(name, namespace, num_worker, version="v1"):
             import kubernetes
             kubernetes.config.load_incluster_config()
             api_instance_custom = kubernetes.client.CustomObjectsApi()
@@ -60,7 +64,7 @@ spec:
             try:
                 api_response = api_instance_core.delete_namespaced_service(name=f"{name}-launcher", namespace=namespace, body={"propagationPolicy": "Foreground"})
                 print("Service %s/%s deleted. Status='%s'" % (f"{name}-launcher", namespace, str(api_response.status)))
-                for index in range(num_workers):
+                for index in range(int(num_worker)):
                     api_response = api_instance_core.delete_namespaced_service(name=f"{name}-worker-{index}", namespace=namespace, body={"propagationPolicy": "Foreground"})
                     print("Service %s/%s deleted. Status='%s'" % (f"{name}-worker-{index}", namespace, str(api_response.status)))
             except kubernetes.client.rest.ApiException as e:
@@ -68,7 +72,7 @@ spec:
 
             try:
                 api_response = api_instance_core.delete_namespaced_service_account(name=f"{name}-launcher", namespace=namespace, body={"propagationPolicy": "Foreground"})
-                print("ServiceAccount %s/%s deleted. Status='%s'" % (f"{name}-launcher", namespace, str(api_response.status)))
+                print("ServiceAccount %s/%s deleted. Status='%s'" % (f"{name}-launcher", namespace, str({'conditions': None, 'load_balancer': {'ingress': None}})))
             except kubernetes.client.rest.ApiException as e:
                 print("Exception when calling CoreV1Api->delete_namespaced_service_account: %s\n" % e)
 
@@ -76,7 +80,8 @@ spec:
         _parser = argparse.ArgumentParser(prog='Clear MPI Job', description='')
         _parser.add_argument("--name", dest="name", type=str, required=True, default=argparse.SUPPRESS)
         _parser.add_argument("--namespace", dest="namespace", type=str, required=True, default=argparse.SUPPRESS)
-        _parser.add_argument("--version", dest="version", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--num-worker", dest="num_worker", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--version", dest="version", type=str, required=False, default=argparse.SUPPRESS)
         _parsed_args = vars(_parser.parse_args())
 
         _outputs = Clear_MPI_Job(**_parsed_args)
@@ -84,6 +89,7 @@ spec:
     inputs:
       parameters:
       - {name: namespace}
+      - {name: num_worker}
     metadata:
       labels:
         pipelines.kubeflow.org/kfp_sdk_version: 1.8.22
@@ -91,12 +97,14 @@ spec:
         pipelines.kubeflow.org/enable_caching: "true"
       annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
           {"args": ["--name", {"inputValue": "name"}, "--namespace", {"inputValue":
-          "namespace"}, "--version", {"inputValue": "version"}], "command": ["sh",
-          "-c", "(PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
-          ''kubernetes'' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install
-          --quiet --no-warn-script-location ''kubernetes'' --user) && \"$0\" \"$@\"",
-          "sh", "-ec", "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3
-          -u \"$program_path\" \"$@\"\n", "def Clear_MPI_Job(name, namespace, version):\n    import
+          "namespace"}, "--num-worker", {"inputValue": "num_worker"}, {"if": {"cond":
+          {"isPresent": "version"}, "then": ["--version", {"inputValue": "version"}]}}],
+          "command": ["sh", "-c", "(PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip
+          install --quiet --no-warn-script-location ''kubernetes'' || PIP_DISABLE_PIP_VERSION_CHECK=1
+          python3 -m pip install --quiet --no-warn-script-location ''kubernetes''
+          --user) && \"$0\" \"$@\"", "sh", "-ec", "program_path=$(mktemp)\nprintf
+          \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+          "def Clear_MPI_Job(name, namespace, num_worker, version=\"v1\"):\n    import
           kubernetes\n    kubernetes.config.load_incluster_config()\n    api_instance_custom
           = kubernetes.client.CustomObjectsApi()\n    api_instance_core = kubernetes.client.CoreV1Api()\n    group
           = \"kubeflow.org\"\n    plural = \"mpijobs\"\n    try:\n        api_response
@@ -107,25 +115,48 @@ spec:
           % e)\n\n    try:\n        api_response = api_instance_core.delete_namespaced_service(name=f\"{name}-launcher\",
           namespace=namespace, body={\"propagationPolicy\": \"Foreground\"})\n        print(\"Service
           %s/%s deleted. Status=''%s''\" % (f\"{name}-launcher\", namespace, str(api_response.status)))\n        for
-          index in range(num_workers):\n            api_response = api_instance_core.delete_namespaced_service(name=f\"{name}-worker-{index}\",
+          index in range(int(num_worker)):\n            api_response = api_instance_core.delete_namespaced_service(name=f\"{name}-worker-{index}\",
           namespace=namespace, body={\"propagationPolicy\": \"Foreground\"})\n            print(\"Service
           %s/%s deleted. Status=''%s''\" % (f\"{name}-worker-{index}\", namespace,
           str(api_response.status)))\n    except kubernetes.client.rest.ApiException
           as e:\n        print(\"Exception when calling CoreV1Api->delete_namespaced_service:
           %s\\n\" % e)\n\n    try:\n        api_response = api_instance_core.delete_namespaced_service_account(name=f\"{name}-launcher\",
           namespace=namespace, body={\"propagationPolicy\": \"Foreground\"})\n        print(\"ServiceAccount
-          %s/%s deleted. Status=''%s''\" % (f\"{name}-launcher\", namespace, str(api_response.status)))\n    except
-          kubernetes.client.rest.ApiException as e:\n        print(\"Exception when
-          calling CoreV1Api->delete_namespaced_service_account: %s\\n\" % e)\n\nimport
-          argparse\n_parser = argparse.ArgumentParser(prog=''Clear MPI Job'', description='''')\n_parser.add_argument(\"--name\",
-          dest=\"name\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--namespace\",
-          dest=\"namespace\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--version\",
-          dest=\"version\", type=str, required=True, default=argparse.SUPPRESS)\n_parsed_args
+          %s/%s deleted. Status=''%s''\" % (f\"{name}-launcher\", namespace, str({''conditions'':
+          None, ''load_balancer'': {''ingress'': None}})))\n    except kubernetes.client.rest.ApiException
+          as e:\n        print(\"Exception when calling CoreV1Api->delete_namespaced_service_account:
+          %s\\n\" % e)\n\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Clear
+          MPI Job'', description='''')\n_parser.add_argument(\"--name\", dest=\"name\",
+          type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--namespace\",
+          dest=\"namespace\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--num-worker\",
+          dest=\"num_worker\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--version\",
+          dest=\"version\", type=str, required=False, default=argparse.SUPPRESS)\n_parsed_args
           = vars(_parser.parse_args())\n\n_outputs = Clear_MPI_Job(**_parsed_args)\n"],
           "image": "python:3.7"}}, "inputs": [{"name": "name"}, {"name": "namespace"},
-          {"name": "version"}], "name": "Clear MPI Job"}', pipelines.kubeflow.org/component_ref: '{}',
+          {"name": "num_worker"}, {"default": "v1", "name": "version", "optional":
+          true}], "name": "Clear MPI Job"}', pipelines.kubeflow.org/component_ref: '{}',
         pipelines.kubeflow.org/arguments.parameters: '{"name": "deepspeed-cnn-dist-job",
-          "namespace": "{{inputs.parameters.namespace}}", "version": "v1"}'}
+          "namespace": "{{inputs.parameters.namespace}}", "num_worker": "{{inputs.parameters.num_worker}}",
+          "version": "v1"}'}
+  - name: exit-handler-1
+    inputs:
+      parameters:
+      - {name: cpu_per_worker}
+      - {name: gpu_per_worker}
+      - {name: memory_per_worker}
+      - {name: namespace}
+      - {name: num_worker}
+    dag:
+      tasks:
+      - name: mpi-job-launcher
+        template: mpi-job-launcher
+        arguments:
+          parameters:
+          - {name: cpu_per_worker, value: '{{inputs.parameters.cpu_per_worker}}'}
+          - {name: gpu_per_worker, value: '{{inputs.parameters.gpu_per_worker}}'}
+          - {name: memory_per_worker, value: '{{inputs.parameters.memory_per_worker}}'}
+          - {name: namespace, value: '{{inputs.parameters.namespace}}'}
+          - {name: num_worker, value: '{{inputs.parameters.num_worker}}'}
   - name: launch-kubeflow-mpi-job
     inputs:
       parameters:
@@ -136,14 +167,8 @@ spec:
       - {name: num_worker}
     dag:
       tasks:
-      - name: clear-mpi-job
-        template: clear-mpi-job
-        dependencies: [mpi-job-launcher]
-        arguments:
-          parameters:
-          - {name: namespace, value: '{{inputs.parameters.namespace}}'}
-      - name: mpi-job-launcher
-        template: mpi-job-launcher
+      - name: exit-handler-1
+        template: exit-handler-1
         arguments:
           parameters:
           - {name: cpu_per_worker, value: '{{inputs.parameters.cpu_per_worker}}'}
@@ -154,35 +179,39 @@ spec:
   - name: mpi-job-launcher
     container:
       args: [--name, deepspeed-cnn-dist-job, --namespace, '{{inputs.parameters.namespace}}',
-        --version, v1, --launcherSpec, '{           "replicas": 1,           "restartPolicy":
-          "Never",           "template": {             "metadata": {               "annotations":
-          {                 "sidecar.istio.io/inject": "false"               },               "labels":
-          {                 "pod-group.scheduling.x-k8s.io/name": deepspeed-cnn-dist-job               }             },             "spec":
-          {               "containers": [                 {                   "name":
-          "deepspeed",                   "image": "yhjh5302/deepspeed-test:latest",                   "command":
+        --version, v1, --launcherSpec, '{               "replicas": 1,               "restartPolicy":
+          "Never",               "template": {                 "metadata": {                   "annotations":
+          {                     "sidecar.istio.io/inject": "false"                   },                   "labels":
+          {                     "app": "yunikorn",                     "scheduling.x-k8s.io/pod-group":
+          deepspeed-cnn-dist-job                   }                 },                 "spec":
+          {                   "containers": [                     {                       "name":
+          "deepspeed",                       "image": "yhjh5302/deepspeed-test:latest",                       "command":
           ["/bin/bash", "-c", "/usr/sbin/sshd && deepspeed -H /etc/mpi/hostfile deepspeed_train.py
-          --deepspeed --deepspeed_config config.json"],                   "resources":
-          {                     "limits": {                       "cpu": {{inputs.parameters.cpu_per_worker}},                       "memory":
-          {{inputs.parameters.memory_per_worker}}Gi,                       "nvidia.com/gpu":
-          {{inputs.parameters.gpu_per_worker}}                     }                   },                   "volumeMounts":
-          [                     {                         "name": "dshm",                         "mountPath":
-          "/dev/shm"                     }                   ]                 }               ],               "volumes":
-          [                 {                   "name": "dshm",                   "emptyDir":
-          {                     "medium": "Memory"                   }                 }               ]             }           }         }',
-        --workerSpec, '{           "replicas": {{inputs.parameters.num_worker}},           "restartPolicy":
-          "Never",           "template": {             "metadata": {               "annotations":
-          {                 "sidecar.istio.io/inject": "false"               },               "labels":
-          {                 "pod-group.scheduling.x-k8s.io/name": deepspeed-cnn-dist-job               }             },             "spec":
-          {               "containers": [                 {                   "name":
-          "deepspeed",                   "image": "yhjh5302/deepspeed-test:latest",                   "command":
-          ["/bin/bash", "-c", "sleep 864000"],                   "resources": {                     "limits":
-          {                       "cpu": {{inputs.parameters.cpu_per_worker}},                       "memory":
-          {{inputs.parameters.memory_per_worker}}Gi,                       "nvidia.com/gpu":
-          {{inputs.parameters.gpu_per_worker}}                     }                   },                   "volumeMounts":
-          [                     {                         "name": "dshm",                         "mountPath":
-          "/dev/shm"                     }                   ]                 }               ],               "volumes":
-          [                 {                   "name": "dshm",                   "emptyDir":
-          {                     "medium": "Memory"                   }                 }               ]             }           }         }',
+          --deepspeed --deepspeed_config config.json"],                       "resources":
+          {                         "limits": {                           "cpu": {{inputs.parameters.cpu_per_worker}},                           "memory":
+          {{inputs.parameters.memory_per_worker}}Gi,                           "nvidia.com/gpu":
+          {{inputs.parameters.gpu_per_worker}}                         }                       },                       "volumeMounts":
+          [                         {                             "name": "dshm",                             "mountPath":
+          "/dev/shm"                         }                       ]                     }                   ],                   "volumes":
+          [                     {                       "name": "dshm",                       "emptyDir":
+          {                         "medium": "Memory"                       }                     }                   ],                   "schedulerName":
+          "scheduler-plugins-scheduler"                 }               }             }',
+        --workerSpec, '{               "replicas": {{inputs.parameters.num_worker}},               "restartPolicy":
+          "Never",               "template": {                 "metadata": {                   "annotations":
+          {                     "sidecar.istio.io/inject": "false"                   },                   "labels":
+          {                     "app": "yunikorn",                     "scheduling.x-k8s.io/pod-group":
+          deepspeed-cnn-dist-job                   }                 },                 "spec":
+          {                   "containers": [                     {                       "name":
+          "deepspeed",                       "image": "yhjh5302/deepspeed-test:latest",                       "command":
+          ["/bin/bash", "-c", "sleep 864000"],                       "resources":
+          {                         "limits": {                           "cpu": {{inputs.parameters.cpu_per_worker}},                           "memory":
+          {{inputs.parameters.memory_per_worker}}Gi,                           "nvidia.com/gpu":
+          {{inputs.parameters.gpu_per_worker}}                         }                       },                       "volumeMounts":
+          [                         {                             "name": "dshm",                             "mountPath":
+          "/dev/shm"                         }                       ]                     }                   ],                   "volumes":
+          [                     {                       "name": "dshm",                       "emptyDir":
+          {                         "medium": "Memory"                       }                     }                   ],                   "schedulerName":
+          "scheduler-plugins-scheduler"                 }               }             }',
         --scheduleTimeoutSeconds, '1440', --schedulingPolicy, '{}', --cleanPodPolicy,
         Running]
       command: [python, /ml/launch_mpi_job.py]
@@ -247,45 +276,52 @@ spec:
           "MPI-Job Launcher"}', pipelines.kubeflow.org/component_ref: '{"digest":
           "3a6fc91a4fe1dfa94bf57452a021802979231337cffbb4e04d19394bfecb4c50", "url":
           "./mpi_job_component.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"clean_pod_policy":
-          "Running", "launcher_spec": "{           \"replicas\": 1,           \"restartPolicy\":
-          \"Never\",           \"template\": {             \"metadata\": {               \"annotations\":
-          {                 \"sidecar.istio.io/inject\": \"false\"               },               \"labels\":
-          {                 \"pod-group.scheduling.x-k8s.io/name\": deepspeed-cnn-dist-job               }             },             \"spec\":
-          {               \"containers\": [                 {                   \"name\":
-          \"deepspeed\",                   \"image\": \"yhjh5302/deepspeed-test:latest\",                   \"command\":
+          "Running", "launcher_spec": "{               \"replicas\": 1,               \"restartPolicy\":
+          \"Never\",               \"template\": {                 \"metadata\": {                   \"annotations\":
+          {                     \"sidecar.istio.io/inject\": \"false\"                   },                   \"labels\":
+          {                     \"app\": \"yunikorn\",                     \"scheduling.x-k8s.io/pod-group\":
+          deepspeed-cnn-dist-job                   }                 },                 \"spec\":
+          {                   \"containers\": [                     {                       \"name\":
+          \"deepspeed\",                       \"image\": \"yhjh5302/deepspeed-test:latest\",                       \"command\":
           [\"/bin/bash\", \"-c\", \"/usr/sbin/sshd && deepspeed -H /etc/mpi/hostfile
-          deepspeed_train.py --deepspeed --deepspeed_config config.json\"],                   \"resources\":
-          {                     \"limits\": {                       \"cpu\": {{inputs.parameters.cpu_per_worker}},                       \"memory\":
-          {{inputs.parameters.memory_per_worker}}Gi,                       \"nvidia.com/gpu\":
-          {{inputs.parameters.gpu_per_worker}}                     }                   },                   \"volumeMounts\":
-          [                     {                         \"name\": \"dshm\",                         \"mountPath\":
-          \"/dev/shm\"                     }                   ]                 }               ],               \"volumes\":
-          [                 {                   \"name\": \"dshm\",                   \"emptyDir\":
-          {                     \"medium\": \"Memory\"                   }                 }               ]             }           }         }",
+          deepspeed_train.py --deepspeed --deepspeed_config config.json\"],                       \"resources\":
+          {                         \"limits\": {                           \"cpu\":
+          {{inputs.parameters.cpu_per_worker}},                           \"memory\":
+          {{inputs.parameters.memory_per_worker}}Gi,                           \"nvidia.com/gpu\":
+          {{inputs.parameters.gpu_per_worker}}                         }                       },                       \"volumeMounts\":
+          [                         {                             \"name\": \"dshm\",                             \"mountPath\":
+          \"/dev/shm\"                         }                       ]                     }                   ],                   \"volumes\":
+          [                     {                       \"name\": \"dshm\",                       \"emptyDir\":
+          {                         \"medium\": \"Memory\"                       }                     }                   ],                   \"schedulerName\":
+          \"scheduler-plugins-scheduler\"                 }               }             }",
           "name": "deepspeed-cnn-dist-job", "namespace": "{{inputs.parameters.namespace}}",
           "schedule_timeout_seconds": "1440", "scheduling_policy": "{}", "version":
-          "v1", "worker_spec": "{           \"replicas\": {{inputs.parameters.num_worker}},           \"restartPolicy\":
-          \"Never\",           \"template\": {             \"metadata\": {               \"annotations\":
-          {                 \"sidecar.istio.io/inject\": \"false\"               },               \"labels\":
-          {                 \"pod-group.scheduling.x-k8s.io/name\": deepspeed-cnn-dist-job               }             },             \"spec\":
-          {               \"containers\": [                 {                   \"name\":
-          \"deepspeed\",                   \"image\": \"yhjh5302/deepspeed-test:latest\",                   \"command\":
-          [\"/bin/bash\", \"-c\", \"sleep 864000\"],                   \"resources\":
-          {                     \"limits\": {                       \"cpu\": {{inputs.parameters.cpu_per_worker}},                       \"memory\":
-          {{inputs.parameters.memory_per_worker}}Gi,                       \"nvidia.com/gpu\":
-          {{inputs.parameters.gpu_per_worker}}                     }                   },                   \"volumeMounts\":
-          [                     {                         \"name\": \"dshm\",                         \"mountPath\":
-          \"/dev/shm\"                     }                   ]                 }               ],               \"volumes\":
-          [                 {                   \"name\": \"dshm\",                   \"emptyDir\":
-          {                     \"medium\": \"Memory\"                   }                 }               ]             }           }         }"}'}
+          "v1", "worker_spec": "{               \"replicas\": {{inputs.parameters.num_worker}},               \"restartPolicy\":
+          \"Never\",               \"template\": {                 \"metadata\": {                   \"annotations\":
+          {                     \"sidecar.istio.io/inject\": \"false\"                   },                   \"labels\":
+          {                     \"app\": \"yunikorn\",                     \"scheduling.x-k8s.io/pod-group\":
+          deepspeed-cnn-dist-job                   }                 },                 \"spec\":
+          {                   \"containers\": [                     {                       \"name\":
+          \"deepspeed\",                       \"image\": \"yhjh5302/deepspeed-test:latest\",                       \"command\":
+          [\"/bin/bash\", \"-c\", \"sleep 864000\"],                       \"resources\":
+          {                         \"limits\": {                           \"cpu\":
+          {{inputs.parameters.cpu_per_worker}},                           \"memory\":
+          {{inputs.parameters.memory_per_worker}}Gi,                           \"nvidia.com/gpu\":
+          {{inputs.parameters.gpu_per_worker}}                         }                       },                       \"volumeMounts\":
+          [                         {                             \"name\": \"dshm\",                             \"mountPath\":
+          \"/dev/shm\"                         }                       ]                     }                   ],                   \"volumes\":
+          [                     {                       \"name\": \"dshm\",                       \"emptyDir\":
+          {                         \"medium\": \"Memory\"                       }                     }                   ],                   \"schedulerName\":
+          \"scheduler-plugins-scheduler\"                 }               }             }"}'}
   arguments:
     parameters:
-    - {name: name}
-    - {name: namespace}
-    - {name: image}
-    - {name: command}
-    - {name: num_worker}
-    - {name: cpu_per_worker}
-    - {name: memory_per_worker}
-    - {name: gpu_per_worker}
+    - {name: name, value: ''}
+    - {name: namespace, value: ''}
+    - {name: image, value: ''}
+    - {name: command, value: ''}
+    - {name: num_worker, value: '3'}
+    - {name: cpu_per_worker, value: '16'}
+    - {name: memory_per_worker, value: '32'}
+    - {name: gpu_per_worker, value: '1'}
   serviceAccountName: pipeline-runner
+  onExit: clear-mpi-job

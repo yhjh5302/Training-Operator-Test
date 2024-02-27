@@ -2,17 +2,18 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: launch-kubeflow-pytorchjob-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-02-26T09:10:21.788473',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-02-27T07:53:42.639748',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "An example to launch pytorch.",
-      "inputs": [{"name": "name", "type": "String"}, {"name": "namespace", "type":
-      "String"}, {"description": "Image registry for workers (string)", "name": "image",
-      "type": "String"}, {"description": "Command for workers (string)", "name": "command",
-      "type": "String"}, {"description": "Number of workers (integer)", "name": "num_worker",
-      "type": "Integer"}, {"description": "CPU allocation per worker (integer: Cores)",
-      "name": "cpu_per_worker", "type": "Integer"}, {"description": "Memory allocation
-      per worker (integer: GiB)", "name": "memory_per_worker", "type": "Integer"},
-      {"description": "GPU allocation per worker (integer)", "name": "gpu_per_worker",
-      "type": "Integer"}], "name": "launch-kubeflow-pytorchjob"}'}
+      "inputs": [{"description": "Name for PyTorchJob (string)", "name": "name", "type":
+      "String"}, {"description": "Namespace for PyTorchJob (string)", "name": "namespace",
+      "type": "String"}, {"description": "Image registry for workers (string)", "name":
+      "image", "type": "String"}, {"description": "Command for workers (string)",
+      "name": "command", "type": "String"}, {"description": "Number of workers (integer)",
+      "name": "num_worker", "type": "Integer"}, {"description": "CPU allocation per
+      worker (integer: Cores)", "name": "cpu_per_worker", "type": "Integer"}, {"description":
+      "Memory allocation per worker (integer: GiB)", "name": "memory_per_worker",
+      "type": "Integer"}, {"description": "GPU allocation per worker (integer)", "name":
+      "gpu_per_worker", "type": "Integer"}], "name": "launch-kubeflow-pytorchjob"}'}
   labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22}
 spec:
   entrypoint: launch-kubeflow-pytorchjob
@@ -97,6 +98,25 @@ spec:
           PyTorchJob"}', pipelines.kubeflow.org/component_ref: '{}', pipelines.kubeflow.org/arguments.parameters: '{"name":
           "pytorch-cnn-dist-job", "namespace": "{{inputs.parameters.namespace}}",
           "version": "v1"}'}
+  - name: exit-handler-1
+    inputs:
+      parameters:
+      - {name: cpu_per_worker}
+      - {name: gpu_per_worker}
+      - {name: memory_per_worker}
+      - {name: namespace}
+      - {name: num_worker}
+    dag:
+      tasks:
+      - name: pytorchjob-launcher
+        template: pytorchjob-launcher
+        arguments:
+          parameters:
+          - {name: cpu_per_worker, value: '{{inputs.parameters.cpu_per_worker}}'}
+          - {name: gpu_per_worker, value: '{{inputs.parameters.gpu_per_worker}}'}
+          - {name: memory_per_worker, value: '{{inputs.parameters.memory_per_worker}}'}
+          - {name: namespace, value: '{{inputs.parameters.namespace}}'}
+          - {name: num_worker, value: '{{inputs.parameters.num_worker}}'}
   - name: launch-kubeflow-pytorchjob
     inputs:
       parameters:
@@ -107,14 +127,8 @@ spec:
       - {name: num_worker}
     dag:
       tasks:
-      - name: clear-pytorchjob
-        template: clear-pytorchjob
-        dependencies: [pytorchjob-launcher]
-        arguments:
-          parameters:
-          - {name: namespace, value: '{{inputs.parameters.namespace}}'}
-      - name: pytorchjob-launcher
-        template: pytorchjob-launcher
+      - name: exit-handler-1
+        template: exit-handler-1
         arguments:
           parameters:
           - {name: cpu_per_worker, value: '{{inputs.parameters.cpu_per_worker}}'}
@@ -132,36 +146,40 @@ spec:
       - --version
       - v1
       - --masterSpec
-      - '{           "replicas": 1,           "restartPolicy": "Never",           "template":
-        {             "metadata": {               "annotations": {                 "sidecar.istio.io/inject":
-        "false"               },               "labels": {                 "pod-group.scheduling.x-k8s.io/name":
-        pytorch-cnn-dist-job               }             },             "spec": {               "containers":
-        [                 {                   "name": "pytorch",                   "image":
-        "yhjh5302/pytorchjob-test:latest",                   "command": ["/bin/bash",
-        "-c", "cd /workspace && python3 pytorchjob_train.py --batch_size=1 --backend=gloo"],                   "resources":
-        {                     "limits": {                       "cpu": {{inputs.parameters.cpu_per_worker}},                       "memory":
-        {{inputs.parameters.memory_per_worker}}Gi,                       "nvidia.com/gpu":
-        {{inputs.parameters.gpu_per_worker}}                     }                   },                   "volumeMounts":
-        [                     {                         "name": "dshm",                         "mountPath":
-        "/dev/shm"                     }                   ]                 }               ],               "volumes":
-        [                 {                   "name": "dshm",                   "emptyDir":
-        {                     "medium": "Memory"                   }                 }               ]             }           }         }'
-      - --workerSpec
-      - '{           "replicas": {{inputs.parameters.num_worker}},           "restartPolicy":
-        "Never",           "template": {             "metadata": {               "annotations":
-        {                 "sidecar.istio.io/inject": "false"               },               "labels":
-        {                 "pod-group.scheduling.x-k8s.io/name": pytorch-cnn-dist-job               }             },             "spec":
-        {               "containers": [                 {                   "name":
-        "pytorch",                   "image": "yhjh5302/pytorchjob-test:latest",                   "command":
+      - '{               "replicas": 1,               "restartPolicy": "Never",               "template":
+        {                 "metadata": {                   "annotations": {                     "sidecar.istio.io/inject":
+        "false"                   },                   "labels": {                     "app":
+        "yunikorn",                     "scheduling.x-k8s.io/pod-group": pytorch-cnn-dist-job                   }                 },                 "spec":
+        {                   "containers": [                     {                       "name":
+        "pytorch",                       "image": "yhjh5302/pytorchjob-test:latest",                       "command":
         ["/bin/bash", "-c", "cd /workspace && python3 pytorchjob_train.py --batch_size=1
-        --backend=gloo"],                   "resources": {                     "limits":
-        {                       "cpu": {{inputs.parameters.cpu_per_worker}},                       "memory":
-        {{inputs.parameters.memory_per_worker}}Gi,                       "nvidia.com/gpu":
-        {{inputs.parameters.gpu_per_worker}}                     }                   },                   "volumeMounts":
-        [                     {                         "name": "dshm",                         "mountPath":
-        "/dev/shm"                     }                   ]                 }               ],               "volumes":
-        [                 {                   "name": "dshm",                   "emptyDir":
-        {                     "medium": "Memory"                   }                 }               ]             }           }         }'
+        --backend=gloo"],                       "resources": {                         "limits":
+        {                           "cpu": {{inputs.parameters.cpu_per_worker}},                           "memory":
+        {{inputs.parameters.memory_per_worker}}Gi,                           "nvidia.com/gpu":
+        {{inputs.parameters.gpu_per_worker}}                         }                       },                       "volumeMounts":
+        [                         {                             "name": "dshm",                             "mountPath":
+        "/dev/shm"                         }                       ]                     }                   ],                   "volumes":
+        [                     {                       "name": "dshm",                       "emptyDir":
+        {                         "medium": "Memory"                       }                     }                   ],                   "schedulerName":
+        "scheduler-plugins-scheduler"                 }               }             }'
+      - --workerSpec
+      - '{               "replicas": {{inputs.parameters.num_worker}},               "restartPolicy":
+        "Never",               "template": {                 "metadata": {                   "annotations":
+        {                     "sidecar.istio.io/inject": "false"                   },                   "labels":
+        {                     "app": "yunikorn",                     "scheduling.x-k8s.io/pod-group":
+        pytorch-cnn-dist-job                   }                 },                 "spec":
+        {                   "containers": [                     {                       "name":
+        "pytorch",                       "image": "yhjh5302/pytorchjob-test:latest",                       "command":
+        ["/bin/bash", "-c", "cd /workspace && python3 pytorchjob_train.py --batch_size=1
+        --backend=gloo"],                       "resources": {                         "limits":
+        {                           "cpu": {{inputs.parameters.cpu_per_worker}},                           "memory":
+        {{inputs.parameters.memory_per_worker}}Gi,                           "nvidia.com/gpu":
+        {{inputs.parameters.gpu_per_worker}}                         }                       },                       "volumeMounts":
+        [                         {                             "name": "dshm",                             "mountPath":
+        "/dev/shm"                         }                       ]                     }                   ],                   "volumes":
+        [                     {                       "name": "dshm",                       "emptyDir":
+        {                         "medium": "Memory"                       }                     }                   ],                   "schedulerName":
+        "scheduler-plugins-scheduler"                 }               }             }'
       - --jobTimeoutMinutes
       - '1440'
       - --deleteAfterDone
@@ -219,37 +237,40 @@ spec:
           "a00c8c4fd7074c33d851f5cf74101f642063b91e16d8ec5d48cb67a10b1141e1", "url":
           "./pytorch_job_component.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"clean_pod_policy":
           "Running", "delete_after_done": "True", "job_timeout_minutes": "1440", "master_spec":
-          "{           \"replicas\": 1,           \"restartPolicy\": \"Never\",           \"template\":
-          {             \"metadata\": {               \"annotations\": {                 \"sidecar.istio.io/inject\":
-          \"false\"               },               \"labels\": {                 \"pod-group.scheduling.x-k8s.io/name\":
-          pytorch-cnn-dist-job               }             },             \"spec\":
-          {               \"containers\": [                 {                   \"name\":
-          \"pytorch\",                   \"image\": \"yhjh5302/pytorchjob-test:latest\",                   \"command\":
+          "{               \"replicas\": 1,               \"restartPolicy\": \"Never\",               \"template\":
+          {                 \"metadata\": {                   \"annotations\": {                     \"sidecar.istio.io/inject\":
+          \"false\"                   },                   \"labels\": {                     \"app\":
+          \"yunikorn\",                     \"scheduling.x-k8s.io/pod-group\": pytorch-cnn-dist-job                   }                 },                 \"spec\":
+          {                   \"containers\": [                     {                       \"name\":
+          \"pytorch\",                       \"image\": \"yhjh5302/pytorchjob-test:latest\",                       \"command\":
           [\"/bin/bash\", \"-c\", \"cd /workspace && python3 pytorchjob_train.py --batch_size=1
-          --backend=gloo\"],                   \"resources\": {                     \"limits\":
-          {                       \"cpu\": {{inputs.parameters.cpu_per_worker}},                       \"memory\":
-          {{inputs.parameters.memory_per_worker}}Gi,                       \"nvidia.com/gpu\":
-          {{inputs.parameters.gpu_per_worker}}                     }                   },                   \"volumeMounts\":
-          [                     {                         \"name\": \"dshm\",                         \"mountPath\":
-          \"/dev/shm\"                     }                   ]                 }               ],               \"volumes\":
-          [                 {                   \"name\": \"dshm\",                   \"emptyDir\":
-          {                     \"medium\": \"Memory\"                   }                 }               ]             }           }         }",
+          --backend=gloo\"],                       \"resources\": {                         \"limits\":
+          {                           \"cpu\": {{inputs.parameters.cpu_per_worker}},                           \"memory\":
+          {{inputs.parameters.memory_per_worker}}Gi,                           \"nvidia.com/gpu\":
+          {{inputs.parameters.gpu_per_worker}}                         }                       },                       \"volumeMounts\":
+          [                         {                             \"name\": \"dshm\",                             \"mountPath\":
+          \"/dev/shm\"                         }                       ]                     }                   ],                   \"volumes\":
+          [                     {                       \"name\": \"dshm\",                       \"emptyDir\":
+          {                         \"medium\": \"Memory\"                       }                     }                   ],                   \"schedulerName\":
+          \"scheduler-plugins-scheduler\"                 }               }             }",
           "name": "pytorch-cnn-dist-job", "namespace": "{{inputs.parameters.namespace}}",
-          "version": "v1", "worker_spec": "{           \"replicas\": {{inputs.parameters.num_worker}},           \"restartPolicy\":
-          \"Never\",           \"template\": {             \"metadata\": {               \"annotations\":
-          {                 \"sidecar.istio.io/inject\": \"false\"               },               \"labels\":
-          {                 \"pod-group.scheduling.x-k8s.io/name\": pytorch-cnn-dist-job               }             },             \"spec\":
-          {               \"containers\": [                 {                   \"name\":
-          \"pytorch\",                   \"image\": \"yhjh5302/pytorchjob-test:latest\",                   \"command\":
+          "version": "v1", "worker_spec": "{               \"replicas\": {{inputs.parameters.num_worker}},               \"restartPolicy\":
+          \"Never\",               \"template\": {                 \"metadata\": {                   \"annotations\":
+          {                     \"sidecar.istio.io/inject\": \"false\"                   },                   \"labels\":
+          {                     \"app\": \"yunikorn\",                     \"scheduling.x-k8s.io/pod-group\":
+          pytorch-cnn-dist-job                   }                 },                 \"spec\":
+          {                   \"containers\": [                     {                       \"name\":
+          \"pytorch\",                       \"image\": \"yhjh5302/pytorchjob-test:latest\",                       \"command\":
           [\"/bin/bash\", \"-c\", \"cd /workspace && python3 pytorchjob_train.py --batch_size=1
-          --backend=gloo\"],                   \"resources\": {                     \"limits\":
-          {                       \"cpu\": {{inputs.parameters.cpu_per_worker}},                       \"memory\":
-          {{inputs.parameters.memory_per_worker}}Gi,                       \"nvidia.com/gpu\":
-          {{inputs.parameters.gpu_per_worker}}                     }                   },                   \"volumeMounts\":
-          [                     {                         \"name\": \"dshm\",                         \"mountPath\":
-          \"/dev/shm\"                     }                   ]                 }               ],               \"volumes\":
-          [                 {                   \"name\": \"dshm\",                   \"emptyDir\":
-          {                     \"medium\": \"Memory\"                   }                 }               ]             }           }         }"}'}
+          --backend=gloo\"],                       \"resources\": {                         \"limits\":
+          {                           \"cpu\": {{inputs.parameters.cpu_per_worker}},                           \"memory\":
+          {{inputs.parameters.memory_per_worker}}Gi,                           \"nvidia.com/gpu\":
+          {{inputs.parameters.gpu_per_worker}}                         }                       },                       \"volumeMounts\":
+          [                         {                             \"name\": \"dshm\",                             \"mountPath\":
+          \"/dev/shm\"                         }                       ]                     }                   ],                   \"volumes\":
+          [                     {                       \"name\": \"dshm\",                       \"emptyDir\":
+          {                         \"medium\": \"Memory\"                       }                     }                   ],                   \"schedulerName\":
+          \"scheduler-plugins-scheduler\"                 }               }             }"}'}
   arguments:
     parameters:
     - {name: name}
@@ -261,3 +282,4 @@ spec:
     - {name: memory_per_worker}
     - {name: gpu_per_worker}
   serviceAccountName: pipeline-runner
+  onExit: clear-pytorchjob
