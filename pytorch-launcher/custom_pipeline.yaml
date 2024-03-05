@@ -2,29 +2,37 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: launch-kubeflow-pytorchjob-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-02-27T08:19:25.948357',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-03-05T00:57:36.702983',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "An example to launch pytorch.",
-      "inputs": [{"default": "", "description": "Name for PyTorchJob (string)", "name":
-      "name", "optional": true, "type": "String"}, {"default": "", "description":
-      "Namespace for PyTorchJob (string)", "name": "namespace", "optional": true,
-      "type": "String"}, {"default": "", "description": "Image registry for workers
-      (string)", "name": "image", "optional": true, "type": "String"}, {"default":
-      "", "description": "Command for workers (string)", "name": "command", "optional":
-      true, "type": "String"}, {"default": "3", "description": "Number of workers
-      (integer)", "name": "num_worker", "optional": true, "type": "Integer"}, {"default":
-      "16", "description": "CPU allocation per worker (integer: Cores)", "name": "cpu_per_worker",
-      "optional": true, "type": "Integer"}, {"default": "32", "description": "Memory
-      allocation per worker (integer: GiB)", "name": "memory_per_worker", "optional":
-      true, "type": "Integer"}, {"default": "1", "description": "GPU allocation per
-      worker (integer)", "name": "gpu_per_worker", "optional": true, "type": "Integer"}],
-      "name": "launch-kubeflow-pytorchjob"}'}
+      "inputs": [{"default": "", "name": "namespace", "optional": true, "type": "String"},
+      {"default": "", "name": "application_id", "optional": true, "type": "String"},
+      {"default": "", "name": "queue", "optional": true, "type": "String"}, {"default":
+      "", "name": "img", "optional": true, "type": "String"}, {"default": "", "name":
+      "cmd", "optional": true, "type": "String"}, {"default": "3", "name": "num_worker",
+      "optional": true, "type": "Integer"}, {"default": "16", "name": "cpu_per_worker",
+      "optional": true, "type": "Integer"}, {"default": "32", "name": "memory_per_worker",
+      "optional": true, "type": "Integer"}, {"default": "1", "name": "gpu_per_worker",
+      "optional": true, "type": "Integer"}, {"default": "1", "name": "node_group_id",
+      "optional": true, "type": "Integer"}, {"default": "", "name": "node_type", "optional":
+      true, "type": "String"}, {"default": "", "name": "public_pvc_nm", "optional":
+      true, "type": "String"}, {"default": "", "name": "public_vol_nm", "optional":
+      true, "type": "String"}, {"default": "", "name": "public_vol_mnt_path", "optional":
+      true, "type": "String"}, {"default": "", "name": "private_pvc_nm", "optional":
+      true, "type": "String"}, {"default": "", "name": "private_vol_nm", "optional":
+      true, "type": "String"}, {"default": "", "name": "private_vol_mnt_path", "optional":
+      true, "type": "String"}, {"default": "", "name": "exp_nm", "optional": true,
+      "type": "String"}, {"default": "", "name": "run_name", "optional": true, "type":
+      "String"}, {"default": "", "name": "config_map_name", "optional": true, "type":
+      "String"}, {"default": "", "name": "device", "optional": true, "type": "String"},
+      {"default": "", "name": "value", "optional": true, "type": "String"}], "name":
+      "launch-kubeflow-pytorchjob"}'}
   labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22}
 spec:
   entrypoint: launch-kubeflow-pytorchjob
   templates:
   - name: clear-pytorchjob
     container:
-      args: [--name, '{{inputs.parameters.name}}', --namespace, '{{inputs.parameters.namespace}}',
+      args: [--name, '{{inputs.parameters.run_name}}', --namespace, '{{inputs.parameters.namespace}}',
         --version, v1]
       command:
       - sh
@@ -72,8 +80,8 @@ spec:
       image: python:3.7
     inputs:
       parameters:
-      - {name: name}
       - {name: namespace}
+      - {name: run_name}
     metadata:
       labels:
         pipelines.kubeflow.org/kfp_sdk_version: 1.8.22
@@ -101,63 +109,141 @@ spec:
           "image": "python:3.7"}}, "inputs": [{"name": "name"}, {"name": "namespace"},
           {"default": "v1", "name": "version", "optional": true}], "name": "Clear
           PyTorchJob"}', pipelines.kubeflow.org/component_ref: '{}', pipelines.kubeflow.org/arguments.parameters: '{"name":
-          "{{inputs.parameters.name}}", "namespace": "{{inputs.parameters.namespace}}",
+          "{{inputs.parameters.run_name}}", "namespace": "{{inputs.parameters.namespace}}",
           "version": "v1"}'}
   - name: exit-handler-1
     inputs:
       parameters:
-      - {name: command}
+      - {name: cmd}
+      - {name: config_map_name}
       - {name: cpu_per_worker}
+      - {name: device}
+      - {name: exp_nm}
       - {name: gpu_per_worker}
-      - {name: image}
+      - {name: img}
       - {name: memory_per_worker}
-      - {name: name}
       - {name: namespace}
+      - {name: node_group_id}
+      - {name: node_type}
       - {name: num_worker}
+      - {name: private_pvc_nm}
+      - {name: private_vol_mnt_path}
+      - {name: private_vol_nm}
+      - {name: public_pvc_nm}
+      - {name: public_vol_mnt_path}
+      - {name: public_vol_nm}
+      - {name: run_name}
+      - {name: value}
     dag:
       tasks:
+      - name: logging-op
+        template: logging-op
+        dependencies: [pytorchjob-launcher]
+        arguments:
+          parameters:
+          - {name: config_map_name, value: '{{inputs.parameters.config_map_name}}'}
+          - {name: exp_nm, value: '{{inputs.parameters.exp_nm}}'}
+          - {name: run_name, value: '{{inputs.parameters.run_name}}'}
       - name: pytorchjob-launcher
         template: pytorchjob-launcher
         arguments:
           parameters:
-          - {name: command, value: '{{inputs.parameters.command}}'}
+          - {name: cmd, value: '{{inputs.parameters.cmd}}'}
+          - {name: config_map_name, value: '{{inputs.parameters.config_map_name}}'}
           - {name: cpu_per_worker, value: '{{inputs.parameters.cpu_per_worker}}'}
+          - {name: device, value: '{{inputs.parameters.device}}'}
+          - {name: exp_nm, value: '{{inputs.parameters.exp_nm}}'}
           - {name: gpu_per_worker, value: '{{inputs.parameters.gpu_per_worker}}'}
-          - {name: image, value: '{{inputs.parameters.image}}'}
+          - {name: img, value: '{{inputs.parameters.img}}'}
           - {name: memory_per_worker, value: '{{inputs.parameters.memory_per_worker}}'}
-          - {name: name, value: '{{inputs.parameters.name}}'}
           - {name: namespace, value: '{{inputs.parameters.namespace}}'}
+          - {name: node_group_id, value: '{{inputs.parameters.node_group_id}}'}
+          - {name: node_type, value: '{{inputs.parameters.node_type}}'}
           - {name: num_worker, value: '{{inputs.parameters.num_worker}}'}
+          - {name: private_pvc_nm, value: '{{inputs.parameters.private_pvc_nm}}'}
+          - {name: private_vol_mnt_path, value: '{{inputs.parameters.private_vol_mnt_path}}'}
+          - {name: private_vol_nm, value: '{{inputs.parameters.private_vol_nm}}'}
+          - {name: public_pvc_nm, value: '{{inputs.parameters.public_pvc_nm}}'}
+          - {name: public_vol_mnt_path, value: '{{inputs.parameters.public_vol_mnt_path}}'}
+          - {name: public_vol_nm, value: '{{inputs.parameters.public_vol_nm}}'}
+          - {name: run_name, value: '{{inputs.parameters.run_name}}'}
+          - {name: value, value: '{{inputs.parameters.value}}'}
   - name: launch-kubeflow-pytorchjob
     inputs:
       parameters:
-      - {name: command}
+      - {name: cmd}
+      - {name: config_map_name}
       - {name: cpu_per_worker}
+      - {name: device}
+      - {name: exp_nm}
       - {name: gpu_per_worker}
-      - {name: image}
+      - {name: img}
       - {name: memory_per_worker}
-      - {name: name}
       - {name: namespace}
+      - {name: node_group_id}
+      - {name: node_type}
       - {name: num_worker}
+      - {name: private_pvc_nm}
+      - {name: private_vol_mnt_path}
+      - {name: private_vol_nm}
+      - {name: public_pvc_nm}
+      - {name: public_vol_mnt_path}
+      - {name: public_vol_nm}
+      - {name: run_name}
+      - {name: value}
     dag:
       tasks:
       - name: exit-handler-1
         template: exit-handler-1
         arguments:
           parameters:
-          - {name: command, value: '{{inputs.parameters.command}}'}
+          - {name: cmd, value: '{{inputs.parameters.cmd}}'}
+          - {name: config_map_name, value: '{{inputs.parameters.config_map_name}}'}
           - {name: cpu_per_worker, value: '{{inputs.parameters.cpu_per_worker}}'}
+          - {name: device, value: '{{inputs.parameters.device}}'}
+          - {name: exp_nm, value: '{{inputs.parameters.exp_nm}}'}
           - {name: gpu_per_worker, value: '{{inputs.parameters.gpu_per_worker}}'}
-          - {name: image, value: '{{inputs.parameters.image}}'}
+          - {name: img, value: '{{inputs.parameters.img}}'}
           - {name: memory_per_worker, value: '{{inputs.parameters.memory_per_worker}}'}
-          - {name: name, value: '{{inputs.parameters.name}}'}
           - {name: namespace, value: '{{inputs.parameters.namespace}}'}
+          - {name: node_group_id, value: '{{inputs.parameters.node_group_id}}'}
+          - {name: node_type, value: '{{inputs.parameters.node_type}}'}
           - {name: num_worker, value: '{{inputs.parameters.num_worker}}'}
+          - {name: private_pvc_nm, value: '{{inputs.parameters.private_pvc_nm}}'}
+          - {name: private_vol_mnt_path, value: '{{inputs.parameters.private_vol_mnt_path}}'}
+          - {name: private_vol_nm, value: '{{inputs.parameters.private_vol_nm}}'}
+          - {name: public_pvc_nm, value: '{{inputs.parameters.public_pvc_nm}}'}
+          - {name: public_vol_mnt_path, value: '{{inputs.parameters.public_vol_mnt_path}}'}
+          - {name: public_vol_nm, value: '{{inputs.parameters.public_vol_nm}}'}
+          - {name: run_name, value: '{{inputs.parameters.run_name}}'}
+          - {name: value, value: '{{inputs.parameters.value}}'}
+  - name: logging-op
+    container:
+      command: [sh, -c, python mlflow_run_detail.py]
+      env:
+      - {name: MLFLOW_EXPERIMENT_NAME, value: '{{inputs.parameters.exp_nm}}'}
+      - {name: MLFLOW_RUN_NAME, value: '{{inputs.parameters.run_name}}'}
+      envFrom:
+      - configMapRef: {name: '{{inputs.parameters.config_map_name}}', optional: true}
+      image: docker.io/jomi0330/mlflow-logging:prod
+    inputs:
+      parameters:
+      - {name: config_map_name}
+      - {name: exp_nm}
+      - {name: run_name}
+    outputs:
+      artifacts:
+      - {name: mlpipeline-ui-metadata, path: /mlpipeline-ui-metadata.json}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.22
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
   - name: pytorchjob-launcher
     container:
       args:
       - --name
-      - '{{inputs.parameters.name}}'
+      - '{{inputs.parameters.run_name}}'
       - --namespace
       - '{{inputs.parameters.namespace}}'
       - --version
@@ -166,34 +252,76 @@ spec:
       - '{               "replicas": 1,               "restartPolicy": "Never",               "template":
         {                 "metadata": {                   "annotations": {                     "sidecar.istio.io/inject":
         "false"                   },                   "labels": {                     "app":
-        "yunikorn",                     "scheduling.x-k8s.io/pod-group": {{inputs.parameters.name}}                   }                 },                 "spec":
-        {                   "containers": [                     {                       "name":
-        "pytorch",                       "image": "{{inputs.parameters.image}}",                       "command":
-        ["/bin/bash", "-c", "{{inputs.parameters.command}}"],                       "resources":
+        "yunikorn",                     "scheduling.x-k8s.io/pod-group": {{inputs.parameters.run_name}}                   }                 },                 "spec":
+        {                   "affinity": {                     "nodeAffinity": {                       "requiredDuringSchedulingIgnoredDuringExecution":
+        {                         "nodeSelectorTerms": [{                           "matchExpressions":
+        [                             {                               "key": "aiplatform/node-group-id",                               "operator":
+        "In",                               "values": ["{{inputs.parameters.node_group_id}}"]                             },                             {                               "key":
+        "aiplatform/node-type",                               "operator": "In",                               "values":
+        ["{{inputs.parameters.node_type}}"]                             }                           ]                         }]                       }                     }                   },                   "containers":
+        [                     {                       "name": "run-op-gpu-pytorch-ddp",                       "image":
+        "{{inputs.parameters.img}}",                       "command": ["/bin/bash",
+        "-c", "{{inputs.parameters.cmd}}"],                       "envFrom": [{                         "configMapRef":
+        {                           "name": "{{inputs.parameters.config_map_name}}",                           "optional":
+        true                         }                       }],                       "env":
+        [                         {                           "name": "node_group_id",                           "value":
+        "{{inputs.parameters.node_group_id}}"                         },                         {                           "name":
+        "node_type",                           "value": "{{inputs.parameters.node_type}}"                         },                         {                           "name":
+        "{{inputs.parameters.device}}",                           "value": "{{inputs.parameters.value}}"                         },                         {                           "name":
+        "MLFLOW_EXPERIMENT_NAME",                           "value": "{{inputs.parameters.exp_nm}}"                         },                         {                           "name":
+        "MLFLOW_RUN_NAME",                           "value": "{{inputs.parameters.run_name}}"                         }                       ],                       "resources":
         {                         "limits": {                           "cpu": {{inputs.parameters.cpu_per_worker}},                           "memory":
         {{inputs.parameters.memory_per_worker}}Gi,                           "nvidia.com/gpu":
         {{inputs.parameters.gpu_per_worker}}                         }                       },                       "volumeMounts":
-        [                         {                             "name": "dshm",                             "mountPath":
-        "/dev/shm"                         }                       ]                     }                   ],                   "volumes":
-        [                     {                       "name": "dshm",                       "emptyDir":
-        {                         "medium": "Memory"                       }                     }                   ],                   "schedulerName":
+        [                         {                           "name": "{{inputs.parameters.public_vol_nm}}",                           "mountPath":
+        "{{inputs.parameters.public_vol_mnt_path}}"                         },                         {                           "name":
+        "{{inputs.parameters.private_vol_nm}}",                           "mountPath":
+        "{{inputs.parameters.private_vol_mnt_path}}"                         },                         {                           "name":
+        "dshm",                           "mountPath": "/dev/shm"                         }                       ]                     }                   ],                   "volumes":
+        [                     {                       "name": "{{inputs.parameters.public_vol_nm}}",                       "persistentVolumeClaim":
+        { "claimName": "{{inputs.parameters.public_pvc_nm}}" }                     },                     {                       "name":
+        "{{inputs.parameters.private_vol_nm}}",                       "persistentVolumeClaim":
+        { "claimName": "{{inputs.parameters.private_pvc_nm}}" }                     },                     {                       "name":
+        "dshm",                       "emptyDir": {                         "medium":
+        "Memory"                       }                     }                   ],                   "schedulerName":
         "scheduler-plugins-scheduler"                 }               }             }'
       - --workerSpec
       - '{               "replicas": {{inputs.parameters.num_worker}},               "restartPolicy":
         "Never",               "template": {                 "metadata": {                   "annotations":
         {                     "sidecar.istio.io/inject": "false"                   },                   "labels":
         {                     "app": "yunikorn",                     "scheduling.x-k8s.io/pod-group":
-        {{inputs.parameters.name}}                   }                 },                 "spec":
-        {                   "containers": [                     {                       "name":
-        "pytorch",                       "image": "{{inputs.parameters.image}}",                       "command":
-        ["/bin/bash", "-c", "{{inputs.parameters.command}}"],                       "resources":
+        {{inputs.parameters.run_name}}                   }                 },                 "spec":
+        {                   "affinity": {                     "nodeAffinity": {                       "requiredDuringSchedulingIgnoredDuringExecution":
+        {                         "nodeSelectorTerms": [{                           "matchExpressions":
+        [                             {                               "key": "aiplatform/node-group-id",                               "operator":
+        "In",                               "values": ["{{inputs.parameters.node_group_id}}"]                             },                             {                               "key":
+        "aiplatform/node-type",                               "operator": "In",                               "values":
+        ["{{inputs.parameters.node_type}}"]                             }                           ]                         }]                       }                     }                   },                   "containers":
+        [                     {                       "name": "pytorch",                       "image":
+        "{{inputs.parameters.img}}",                       "command": ["/bin/bash",
+        "-c", "{{inputs.parameters.cmd}}"],                       "envFrom": [{                         "configMapRef":
+        {                           "name": "{{inputs.parameters.config_map_name}}",                           "optional":
+        true                         }                       }],                       "env":
+        [                         {                           "name": "node_group_id",                           "value":
+        "{{inputs.parameters.node_group_id}}"                         },                         {                           "name":
+        "node_type",                           "value": "{{inputs.parameters.node_type}}"                         },                         {                           "name":
+        "{{inputs.parameters.device}}",                           "value": "{{inputs.parameters.value}}"                         },                         {                           "name":
+        "MLFLOW_EXPERIMENT_NAME",                           "value": "{{inputs.parameters.exp_nm}}"                         },                         {                           "name":
+        "MLFLOW_RUN_NAME",                           "value": "{{inputs.parameters.run_name}}"                         }                       ],                       "resources":
         {                         "limits": {                           "cpu": {{inputs.parameters.cpu_per_worker}},                           "memory":
         {{inputs.parameters.memory_per_worker}}Gi,                           "nvidia.com/gpu":
         {{inputs.parameters.gpu_per_worker}}                         }                       },                       "volumeMounts":
-        [                         {                             "name": "dshm",                             "mountPath":
-        "/dev/shm"                         }                       ]                     }                   ],                   "volumes":
-        [                     {                       "name": "dshm",                       "emptyDir":
-        {                         "medium": "Memory"                       }                     }                   ],                   "schedulerName":
+        [                         {                           "name": "{{inputs.parameters.public_vol_nm}}",                           "mountPath":
+        "{{inputs.parameters.public_vol_mnt_path}}"                         },                         {                           "name":
+        "{{inputs.parameters.private_vol_nm}}",                           "mountPath":
+        "{{inputs.parameters.private_vol_mnt_path}}"                         },                         {                           "name":
+        "dshm",                           "mountPath": "/dev/shm"                         }                       ]                     }                   ],                   "volumes":
+        [                     {                       "name": "{{inputs.parameters.public_vol_nm}}",                       "persistentVolumeClaim":
+        { "claimName": "{{inputs.parameters.public_pvc_nm}}" }                     },                     {                       "name":
+        "{{inputs.parameters.private_vol_nm}}",                       "persistentVolumeClaim":
+        { "claimName": "{{inputs.parameters.private_pvc_nm}}" }                     },                     {                       "name":
+        "dshm",                       "emptyDir": {                         "medium":
+        "Memory"                       }                     }                   ],                   "schedulerName":
         "scheduler-plugins-scheduler"                 }               }             }'
       - --jobTimeoutMinutes
       - '1440'
@@ -205,14 +333,26 @@ spec:
       image: yhjh5302/kubeflow-pytorchjob-launcher:v1
     inputs:
       parameters:
-      - {name: command}
+      - {name: cmd}
+      - {name: config_map_name}
       - {name: cpu_per_worker}
+      - {name: device}
+      - {name: exp_nm}
       - {name: gpu_per_worker}
-      - {name: image}
+      - {name: img}
       - {name: memory_per_worker}
-      - {name: name}
       - {name: namespace}
+      - {name: node_group_id}
+      - {name: node_type}
       - {name: num_worker}
+      - {name: private_pvc_nm}
+      - {name: private_vol_mnt_path}
+      - {name: private_vol_nm}
+      - {name: public_pvc_nm}
+      - {name: public_vol_mnt_path}
+      - {name: public_vol_nm}
+      - {name: run_name}
+      - {name: value}
     metadata:
       labels:
         pipelines.kubeflow.org/kfp_sdk_version: 1.8.22
@@ -258,46 +398,106 @@ spec:
           "{               \"replicas\": 1,               \"restartPolicy\": \"Never\",               \"template\":
           {                 \"metadata\": {                   \"annotations\": {                     \"sidecar.istio.io/inject\":
           \"false\"                   },                   \"labels\": {                     \"app\":
-          \"yunikorn\",                     \"scheduling.x-k8s.io/pod-group\": {{inputs.parameters.name}}                   }                 },                 \"spec\":
-          {                   \"containers\": [                     {                       \"name\":
-          \"pytorch\",                       \"image\": \"{{inputs.parameters.image}}\",                       \"command\":
-          [\"/bin/bash\", \"-c\", \"{{inputs.parameters.command}}\"],                       \"resources\":
+          \"yunikorn\",                     \"scheduling.x-k8s.io/pod-group\": {{inputs.parameters.run_name}}                   }                 },                 \"spec\":
+          {                   \"affinity\": {                     \"nodeAffinity\":
+          {                       \"requiredDuringSchedulingIgnoredDuringExecution\":
+          {                         \"nodeSelectorTerms\": [{                           \"matchExpressions\":
+          [                             {                               \"key\": \"aiplatform/node-group-id\",                               \"operator\":
+          \"In\",                               \"values\": [\"{{inputs.parameters.node_group_id}}\"]                             },                             {                               \"key\":
+          \"aiplatform/node-type\",                               \"operator\": \"In\",                               \"values\":
+          [\"{{inputs.parameters.node_type}}\"]                             }                           ]                         }]                       }                     }                   },                   \"containers\":
+          [                     {                       \"name\": \"run-op-gpu-pytorch-ddp\",                       \"image\":
+          \"{{inputs.parameters.img}}\",                       \"command\": [\"/bin/bash\",
+          \"-c\", \"{{inputs.parameters.cmd}}\"],                       \"envFrom\":
+          [{                         \"configMapRef\": {                           \"name\":
+          \"{{inputs.parameters.config_map_name}}\",                           \"optional\":
+          true                         }                       }],                       \"env\":
+          [                         {                           \"name\": \"node_group_id\",                           \"value\":
+          \"{{inputs.parameters.node_group_id}}\"                         },                         {                           \"name\":
+          \"node_type\",                           \"value\": \"{{inputs.parameters.node_type}}\"                         },                         {                           \"name\":
+          \"{{inputs.parameters.device}}\",                           \"value\": \"{{inputs.parameters.value}}\"                         },                         {                           \"name\":
+          \"MLFLOW_EXPERIMENT_NAME\",                           \"value\": \"{{inputs.parameters.exp_nm}}\"                         },                         {                           \"name\":
+          \"MLFLOW_RUN_NAME\",                           \"value\": \"{{inputs.parameters.run_name}}\"                         }                       ],                       \"resources\":
           {                         \"limits\": {                           \"cpu\":
           {{inputs.parameters.cpu_per_worker}},                           \"memory\":
           {{inputs.parameters.memory_per_worker}}Gi,                           \"nvidia.com/gpu\":
           {{inputs.parameters.gpu_per_worker}}                         }                       },                       \"volumeMounts\":
-          [                         {                             \"name\": \"dshm\",                             \"mountPath\":
-          \"/dev/shm\"                         }                       ]                     }                   ],                   \"volumes\":
-          [                     {                       \"name\": \"dshm\",                       \"emptyDir\":
-          {                         \"medium\": \"Memory\"                       }                     }                   ],                   \"schedulerName\":
+          [                         {                           \"name\": \"{{inputs.parameters.public_vol_nm}}\",                           \"mountPath\":
+          \"{{inputs.parameters.public_vol_mnt_path}}\"                         },                         {                           \"name\":
+          \"{{inputs.parameters.private_vol_nm}}\",                           \"mountPath\":
+          \"{{inputs.parameters.private_vol_mnt_path}}\"                         },                         {                           \"name\":
+          \"dshm\",                           \"mountPath\": \"/dev/shm\"                         }                       ]                     }                   ],                   \"volumes\":
+          [                     {                       \"name\": \"{{inputs.parameters.public_vol_nm}}\",                       \"persistentVolumeClaim\":
+          { \"claimName\": \"{{inputs.parameters.public_pvc_nm}}\" }                     },                     {                       \"name\":
+          \"{{inputs.parameters.private_vol_nm}}\",                       \"persistentVolumeClaim\":
+          { \"claimName\": \"{{inputs.parameters.private_pvc_nm}}\" }                     },                     {                       \"name\":
+          \"dshm\",                       \"emptyDir\": {                         \"medium\":
+          \"Memory\"                       }                     }                   ],                   \"schedulerName\":
           \"scheduler-plugins-scheduler\"                 }               }             }",
-          "name": "{{inputs.parameters.name}}", "namespace": "{{inputs.parameters.namespace}}",
+          "name": "{{inputs.parameters.run_name}}", "namespace": "{{inputs.parameters.namespace}}",
           "version": "v1", "worker_spec": "{               \"replicas\": {{inputs.parameters.num_worker}},               \"restartPolicy\":
           \"Never\",               \"template\": {                 \"metadata\": {                   \"annotations\":
           {                     \"sidecar.istio.io/inject\": \"false\"                   },                   \"labels\":
           {                     \"app\": \"yunikorn\",                     \"scheduling.x-k8s.io/pod-group\":
-          {{inputs.parameters.name}}                   }                 },                 \"spec\":
-          {                   \"containers\": [                     {                       \"name\":
-          \"pytorch\",                       \"image\": \"{{inputs.parameters.image}}\",                       \"command\":
-          [\"/bin/bash\", \"-c\", \"{{inputs.parameters.command}}\"],                       \"resources\":
+          {{inputs.parameters.run_name}}                   }                 },                 \"spec\":
+          {                   \"affinity\": {                     \"nodeAffinity\":
+          {                       \"requiredDuringSchedulingIgnoredDuringExecution\":
+          {                         \"nodeSelectorTerms\": [{                           \"matchExpressions\":
+          [                             {                               \"key\": \"aiplatform/node-group-id\",                               \"operator\":
+          \"In\",                               \"values\": [\"{{inputs.parameters.node_group_id}}\"]                             },                             {                               \"key\":
+          \"aiplatform/node-type\",                               \"operator\": \"In\",                               \"values\":
+          [\"{{inputs.parameters.node_type}}\"]                             }                           ]                         }]                       }                     }                   },                   \"containers\":
+          [                     {                       \"name\": \"pytorch\",                       \"image\":
+          \"{{inputs.parameters.img}}\",                       \"command\": [\"/bin/bash\",
+          \"-c\", \"{{inputs.parameters.cmd}}\"],                       \"envFrom\":
+          [{                         \"configMapRef\": {                           \"name\":
+          \"{{inputs.parameters.config_map_name}}\",                           \"optional\":
+          true                         }                       }],                       \"env\":
+          [                         {                           \"name\": \"node_group_id\",                           \"value\":
+          \"{{inputs.parameters.node_group_id}}\"                         },                         {                           \"name\":
+          \"node_type\",                           \"value\": \"{{inputs.parameters.node_type}}\"                         },                         {                           \"name\":
+          \"{{inputs.parameters.device}}\",                           \"value\": \"{{inputs.parameters.value}}\"                         },                         {                           \"name\":
+          \"MLFLOW_EXPERIMENT_NAME\",                           \"value\": \"{{inputs.parameters.exp_nm}}\"                         },                         {                           \"name\":
+          \"MLFLOW_RUN_NAME\",                           \"value\": \"{{inputs.parameters.run_name}}\"                         }                       ],                       \"resources\":
           {                         \"limits\": {                           \"cpu\":
           {{inputs.parameters.cpu_per_worker}},                           \"memory\":
           {{inputs.parameters.memory_per_worker}}Gi,                           \"nvidia.com/gpu\":
           {{inputs.parameters.gpu_per_worker}}                         }                       },                       \"volumeMounts\":
-          [                         {                             \"name\": \"dshm\",                             \"mountPath\":
-          \"/dev/shm\"                         }                       ]                     }                   ],                   \"volumes\":
-          [                     {                       \"name\": \"dshm\",                       \"emptyDir\":
-          {                         \"medium\": \"Memory\"                       }                     }                   ],                   \"schedulerName\":
+          [                         {                           \"name\": \"{{inputs.parameters.public_vol_nm}}\",                           \"mountPath\":
+          \"{{inputs.parameters.public_vol_mnt_path}}\"                         },                         {                           \"name\":
+          \"{{inputs.parameters.private_vol_nm}}\",                           \"mountPath\":
+          \"{{inputs.parameters.private_vol_mnt_path}}\"                         },                         {                           \"name\":
+          \"dshm\",                           \"mountPath\": \"/dev/shm\"                         }                       ]                     }                   ],                   \"volumes\":
+          [                     {                       \"name\": \"{{inputs.parameters.public_vol_nm}}\",                       \"persistentVolumeClaim\":
+          { \"claimName\": \"{{inputs.parameters.public_pvc_nm}}\" }                     },                     {                       \"name\":
+          \"{{inputs.parameters.private_vol_nm}}\",                       \"persistentVolumeClaim\":
+          { \"claimName\": \"{{inputs.parameters.private_pvc_nm}}\" }                     },                     {                       \"name\":
+          \"dshm\",                       \"emptyDir\": {                         \"medium\":
+          \"Memory\"                       }                     }                   ],                   \"schedulerName\":
           \"scheduler-plugins-scheduler\"                 }               }             }"}'}
   arguments:
     parameters:
-    - {name: name, value: ''}
     - {name: namespace, value: ''}
-    - {name: image, value: ''}
-    - {name: command, value: ''}
+    - {name: application_id, value: ''}
+    - {name: queue, value: ''}
+    - {name: img, value: ''}
+    - {name: cmd, value: ''}
     - {name: num_worker, value: '3'}
     - {name: cpu_per_worker, value: '16'}
     - {name: memory_per_worker, value: '32'}
     - {name: gpu_per_worker, value: '1'}
+    - {name: node_group_id, value: '1'}
+    - {name: node_type, value: ''}
+    - {name: public_pvc_nm, value: ''}
+    - {name: public_vol_nm, value: ''}
+    - {name: public_vol_mnt_path, value: ''}
+    - {name: private_pvc_nm, value: ''}
+    - {name: private_vol_nm, value: ''}
+    - {name: private_vol_mnt_path, value: ''}
+    - {name: exp_nm, value: ''}
+    - {name: run_name, value: ''}
+    - {name: config_map_name, value: ''}
+    - {name: device, value: ''}
+    - {name: value, value: ''}
   serviceAccountName: pipeline-runner
   onExit: clear-pytorchjob

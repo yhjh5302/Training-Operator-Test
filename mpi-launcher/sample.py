@@ -6,17 +6,7 @@ from kfp import dsl
 from kfp import compiler
 from kfp import components
 from kfp_server_api import ApiException
-
-
-def get_current_namespace():
-    """Returns current namespace if available, else kubeflow"""
-    try:
-        current_namespace = open(
-            "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
-        ).read()
-    except:
-        current_namespace = "kubeflow"
-    return current_namespace
+from kubernetes.client.models import V1EnvFromSource, V1ConfigMapEnvSource, V1EnvVar
 
 
 def Clear_MPI_Job(name, namespace, num_worker, version="v1"):
@@ -66,45 +56,47 @@ clear_mpijob_op = components.func_to_container_op(func=Clear_MPI_Job, packages_t
     description="An example to launch deepspeed.",
 )
 def custom_pipeline(
-        name: str = "",
         namespace: str = "",
-        image: str = "",
-        command: str = "",
+        application_id: str = "",
+        queue: str = "",
+        img: str = "",
+        cmd: str = "",
         num_worker: int = 3,
         cpu_per_worker: int = 16,
         memory_per_worker: int = 32,
-        gpu_per_worker: int = 1
+        gpu_per_worker: int = 1,
+        node_group_id: int = 1,
+        node_type: str = "",
+        public_pvc_nm: str = "",
+        public_vol_nm: str = "",
+        public_vol_mnt_path: str = "",
+        private_pvc_nm: str = "",
+        private_vol_nm: str = "",
+        private_vol_mnt_path: str = "",
+        exp_nm: str = "",
+        run_name: str = "",
+        config_map_name: str = "",
+        device: str = "",
+        value: str = "",
     ) -> None:
-    """
-    Run MPI-Job
-    Args:
-        name (str): Name for MPI-Job (string)
-        namespace (str): Namespace for MPI-Job (string)
-        image (str): Image registry for workers (string)
-        command (str): Command for workers (string)
-        num_worker (int): Number of workers (integer)
-        cpu_per_worker (int): CPU allocation per worker (integer: Cores)
-        memory_per_worker (int): Memory allocation per worker (integer: GiB)
-        gpu_per_worker (int): GPU allocation per worker (integer)
-    """
     if not num_worker > 0:
         raise ValueError("num_worker must be greater than 0.")
 
     # MPI-Job Test
     mpi_job_op = components.load_component_from_file('./mpi_job_component.yaml')
     # name: str = 'deepspeed-cnn-dist-job'
-    # image: str = 'yhjh5302/deepspeed-test:latest'
-    # command: str = '/usr/sbin/sshd && deepspeed -H /etc/mpi/hostfile deepspeed_train.py --deepspeed --deepspeed_config config.json'
+    # img: str = 'yhjh5302/deepspeed-test:latest'
+    # cmd: str = '/usr/sbin/sshd && deepspeed -H /etc/mpi/hostfile deepspeed_train.py --deepspeed --deepspeed_config config.json'
 
     handle_exit = clear_mpijob_op(
-        name=name,
+        name=run_name,
         namespace=namespace,
         num_worker=num_worker,
         version='v1'
     )
     with dsl.ExitHandler(handle_exit):
         train_task = mpi_job_op(
-            name=name,
+            name=run_name,
             namespace=namespace,
             launcher_spec='{ \
               "replicas": 1, \
@@ -116,15 +108,63 @@ def custom_pipeline(
                   }, \
                   "labels": { \
                     "app": "yunikorn", \
-                    "scheduling.x-k8s.io/pod-group": %s \
+                    "scheduling.x-k8s.io/pod-group": "%s", \
                   } \
                 }, \
                 "spec": { \
+                  "affinity": { \
+                    "nodeAffinity": { \
+                      "requiredDuringSchedulingIgnoredDuringExecution": { \
+                        "nodeSelectorTerms": [{ \
+                          "matchExpressions": [ \
+                            { \
+                              "key": "aiplatform/node-group-id", \
+                              "operator": "In", \
+                              "values": ["%s"] \
+                            }, \
+                            { \
+                              "key": "aiplatform/node-type", \
+                              "operator": "In", \
+                              "values": ["%s"] \
+                            } \
+                          ] \
+                        }] \
+                      } \
+                    } \
+                  }, \
                   "containers": [ \
                     { \
-                      "name": "deepspeed", \
+                      "name": "run-op-gpu-deepspeed", \
                       "image": "%s", \
                       "command": ["/bin/bash", "-c", "%s"], \
+                      "envFrom": [{ \
+                        "configMapRef": { \
+                          "name": "%s", \
+                          "optional": true \
+                        } \
+                      }], \
+                      "env": [ \
+                        { \
+                          "name": "node_group_id", \
+                          "value": "%s" \
+                        }, \
+                        { \
+                          "name": "node_type", \
+                          "value": "%s" \
+                        }, \
+                        { \
+                          "name": "%s", \
+                          "value": "%s" \
+                        }, \
+                        { \
+                          "name": "MLFLOW_EXPERIMENT_NAME", \
+                          "value": "%s" \
+                        }, \
+                        { \
+                          "name": "MLFLOW_RUN_NAME", \
+                          "value": "%s" \
+                        } \
+                      ], \
                       "resources": { \
                         "limits": { \
                           "cpu": %s, \
@@ -134,13 +174,29 @@ def custom_pipeline(
                       }, \
                       "volumeMounts": [ \
                         { \
-                            "name": "dshm", \
-                            "mountPath": "/dev/shm" \
+                          "name": "%s", \
+                          "mountPath": "%s" \
+                        }, \
+                        { \
+                          "name": "%s", \
+                          "mountPath": "%s" \
+                        }, \
+                        { \
+                          "name": "dshm", \
+                          "mountPath": "/dev/shm" \
                         } \
                       ] \
                     } \
                   ], \
                   "volumes": [ \
+                    { \
+                      "name": "%s", \
+                      "persistentVolumeClaim": { "claimName": "%s" } \
+                    }, \
+                    { \
+                      "name": "%s", \
+                      "persistentVolumeClaim": { "claimName": "%s" } \
+                    }, \
                     { \
                       "name": "dshm", \
                       "emptyDir": { \
@@ -151,7 +207,7 @@ def custom_pipeline(
                   "schedulerName": "scheduler-plugins-scheduler" \
                 } \
               } \
-            }' % (name, image, command, cpu_per_worker, memory_per_worker, gpu_per_worker),
+            }' % (run_name, node_group_id, node_type, img, cmd, config_map_name, node_group_id, node_type, device, value, exp_nm, run_name, cpu_per_worker, memory_per_worker, gpu_per_worker, public_vol_nm, public_vol_mnt_path, private_vol_nm, private_vol_mnt_path, public_vol_nm, public_pvc_nm, private_vol_nm, private_pvc_nm),
             worker_spec='{ \
               "replicas": %s, \
               "restartPolicy": "Never", \
@@ -166,11 +222,59 @@ def custom_pipeline(
                   } \
                 }, \
                 "spec": { \
+                  "affinity": { \
+                    "nodeAffinity": { \
+                      "requiredDuringSchedulingIgnoredDuringExecution": { \
+                        "nodeSelectorTerms": [{ \
+                          "matchExpressions": [ \
+                            { \
+                              "key": "aiplatform/node-group-id", \
+                              "operator": "In", \
+                              "values": ["%s"] \
+                            }, \
+                            { \
+                              "key": "aiplatform/node-type", \
+                              "operator": "In", \
+                              "values": ["%s"] \
+                            } \
+                          ] \
+                        }] \
+                      } \
+                    } \
+                  }, \
                   "containers": [ \
                     { \
                       "name": "deepspeed", \
                       "image": "%s", \
                       "command": ["/bin/bash", "-c", "sleep 864000"], \
+                      "envFrom": [{ \
+                        "configMapRef": { \
+                          "name": "%s", \
+                          "optional": true \
+                        } \
+                      }], \
+                      "env": [ \
+                        { \
+                          "name": "node_group_id", \
+                          "value": "%s" \
+                        }, \
+                        { \
+                          "name": "node_type", \
+                          "value": "%s" \
+                        }, \
+                        { \
+                          "name": "%s", \
+                          "value": "%s" \
+                        }, \
+                        { \
+                          "name": "MLFLOW_EXPERIMENT_NAME", \
+                          "value": "%s" \
+                        }, \
+                        { \
+                          "name": "MLFLOW_RUN_NAME", \
+                          "value": "%s" \
+                        } \
+                      ], \
                       "resources": { \
                         "limits": { \
                           "cpu": %s, \
@@ -180,13 +284,29 @@ def custom_pipeline(
                       }, \
                       "volumeMounts": [ \
                         { \
-                            "name": "dshm", \
-                            "mountPath": "/dev/shm" \
+                          "name": "%s", \
+                          "mountPath": "%s" \
+                        }, \
+                        { \
+                          "name": "%s", \
+                          "mountPath": "%s" \
+                        }, \
+                        { \
+                          "name": "dshm", \
+                          "mountPath": "/dev/shm" \
                         } \
                       ] \
                     } \
                   ], \
                   "volumes": [ \
+                    { \
+                      "name": "%s", \
+                      "persistentVolumeClaim": { "claimName": "%s" } \
+                    }, \
+                    { \
+                      "name": "%s", \
+                      "persistentVolumeClaim": { "claimName": "%s" } \
+                    }, \
                     { \
                       "name": "dshm", \
                       "emptyDir": { \
@@ -197,9 +317,21 @@ def custom_pipeline(
                   "schedulerName": "scheduler-plugins-scheduler" \
                 } \
               } \
-            }' % (num_worker, name, image, cpu_per_worker, memory_per_worker, gpu_per_worker),
+            }' % (num_worker, run_name, node_group_id, node_type, img, config_map_name, node_group_id, node_type, device, value, exp_nm, run_name, cpu_per_worker, memory_per_worker, gpu_per_worker, public_vol_nm, public_vol_mnt_path, private_vol_nm, private_vol_mnt_path, public_vol_nm, public_pvc_nm, private_vol_nm, private_pvc_nm),
             delete_after_done=True
         )
+
+        logging_task = dsl.ContainerOp(
+            name="logging-op",
+            image="docker.io/jomi0330/mlflow-logging:prod",
+            command=["sh", "-c", "python mlflow_run_detail.py"],
+            output_artifact_paths={"mlpipeline-ui-metadata": "/mlpipeline-ui-metadata.json"}
+        )
+        logging_task.add_env_variable(V1EnvVar(name="MLFLOW_EXPERIMENT_NAME", value=exp_nm))
+        logging_task.add_env_variable(V1EnvVar(name="MLFLOW_RUN_NAME", value=run_name))
+        config_map_ref = V1ConfigMapEnvSource(name=config_map_name, optional=True)
+        logging_task.add_env_from(V1EnvFromSource(config_map_ref=config_map_ref))
+        logging_task.after(train_task)
 
 
 # credentials = auth.ServiceAccountTokenVolumeCredentials(path=None)
