@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: launch-kubeflow-mpi-job-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-03-05T00:57:40.621853',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-03-14T14:07:20.024123',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "An example to launch deepspeed.",
       "inputs": [{"default": "", "name": "namespace", "optional": true, "type": "String"},
       {"default": "", "name": "application_id", "optional": true, "type": "String"},
@@ -12,6 +12,7 @@ metadata:
       "optional": true, "type": "Integer"}, {"default": "16", "name": "cpu_per_worker",
       "optional": true, "type": "Integer"}, {"default": "32", "name": "memory_per_worker",
       "optional": true, "type": "Integer"}, {"default": "1", "name": "gpu_per_worker",
+      "optional": true, "type": "Integer"}, {"default": "125", "name": "ndr_per_worker",
       "optional": true, "type": "Integer"}, {"default": "1", "name": "node_group_id",
       "optional": true, "type": "Integer"}, {"default": "", "name": "node_type", "optional":
       true, "type": "String"}, {"default": "", "name": "public_pvc_nm", "optional":
@@ -160,6 +161,7 @@ spec:
       - {name: img}
       - {name: memory_per_worker}
       - {name: namespace}
+      - {name: ndr_per_worker}
       - {name: node_group_id}
       - {name: node_type}
       - {name: num_worker}
@@ -194,6 +196,7 @@ spec:
           - {name: img, value: '{{inputs.parameters.img}}'}
           - {name: memory_per_worker, value: '{{inputs.parameters.memory_per_worker}}'}
           - {name: namespace, value: '{{inputs.parameters.namespace}}'}
+          - {name: ndr_per_worker, value: '{{inputs.parameters.ndr_per_worker}}'}
           - {name: node_group_id, value: '{{inputs.parameters.node_group_id}}'}
           - {name: node_type, value: '{{inputs.parameters.node_type}}'}
           - {name: num_worker, value: '{{inputs.parameters.num_worker}}'}
@@ -217,6 +220,7 @@ spec:
       - {name: img}
       - {name: memory_per_worker}
       - {name: namespace}
+      - {name: ndr_per_worker}
       - {name: node_group_id}
       - {name: node_type}
       - {name: num_worker}
@@ -243,6 +247,7 @@ spec:
           - {name: img, value: '{{inputs.parameters.img}}'}
           - {name: memory_per_worker, value: '{{inputs.parameters.memory_per_worker}}'}
           - {name: namespace, value: '{{inputs.parameters.namespace}}'}
+          - {name: ndr_per_worker, value: '{{inputs.parameters.ndr_per_worker}}'}
           - {name: node_group_id, value: '{{inputs.parameters.node_group_id}}'}
           - {name: node_type, value: '{{inputs.parameters.node_type}}'}
           - {name: num_worker, value: '{{inputs.parameters.num_worker}}'}
@@ -303,7 +308,8 @@ spec:
           "MLFLOW_RUN_NAME",                           "value": "{{inputs.parameters.run_name}}"                         }                       ],                       "resources":
           {                         "limits": {                           "cpu": {{inputs.parameters.cpu_per_worker}},                           "memory":
           {{inputs.parameters.memory_per_worker}}Gi,                           "nvidia.com/gpu":
-          {{inputs.parameters.gpu_per_worker}}                         }                       },                       "volumeMounts":
+          {{inputs.parameters.gpu_per_worker}}                           "rdma/rdma_shared_device_ndr":
+          {{inputs.parameters.ndr_per_worker}}                         }                       },                       "volumeMounts":
           [                         {                           "name": "{{inputs.parameters.public_vol_nm}}",                           "mountPath":
           "{{inputs.parameters.public_vol_mnt_path}}"                         },                         {                           "name":
           "{{inputs.parameters.private_vol_nm}}",                           "mountPath":
@@ -340,7 +346,8 @@ spec:
           "MLFLOW_RUN_NAME",                           "value": "{{inputs.parameters.run_name}}"                         }                       ],                       "resources":
           {                         "limits": {                           "cpu": {{inputs.parameters.cpu_per_worker}},                           "memory":
           {{inputs.parameters.memory_per_worker}}Gi,                           "nvidia.com/gpu":
-          {{inputs.parameters.gpu_per_worker}}                         }                       },                       "volumeMounts":
+          {{inputs.parameters.gpu_per_worker}}                           "rdma/rdma_shared_device_ndr":
+          {{inputs.parameters.ndr_per_worker}}                         }                       },                       "volumeMounts":
           [                         {                           "name": "{{inputs.parameters.public_vol_nm}}",                           "mountPath":
           "{{inputs.parameters.public_vol_mnt_path}}"                         },                         {                           "name":
           "{{inputs.parameters.private_vol_nm}}",                           "mountPath":
@@ -368,6 +375,7 @@ spec:
       - {name: img}
       - {name: memory_per_worker}
       - {name: namespace}
+      - {name: ndr_per_worker}
       - {name: node_group_id}
       - {name: node_type}
       - {name: num_worker}
@@ -459,7 +467,8 @@ spec:
           {                         \"limits\": {                           \"cpu\":
           {{inputs.parameters.cpu_per_worker}},                           \"memory\":
           {{inputs.parameters.memory_per_worker}}Gi,                           \"nvidia.com/gpu\":
-          {{inputs.parameters.gpu_per_worker}}                         }                       },                       \"volumeMounts\":
+          {{inputs.parameters.gpu_per_worker}}                           \"rdma/rdma_shared_device_ndr\":
+          {{inputs.parameters.ndr_per_worker}}                         }                       },                       \"volumeMounts\":
           [                         {                           \"name\": \"{{inputs.parameters.public_vol_nm}}\",                           \"mountPath\":
           \"{{inputs.parameters.public_vol_mnt_path}}\"                         },                         {                           \"name\":
           \"{{inputs.parameters.private_vol_nm}}\",                           \"mountPath\":
@@ -500,7 +509,8 @@ spec:
           {                         \"limits\": {                           \"cpu\":
           {{inputs.parameters.cpu_per_worker}},                           \"memory\":
           {{inputs.parameters.memory_per_worker}}Gi,                           \"nvidia.com/gpu\":
-          {{inputs.parameters.gpu_per_worker}}                         }                       },                       \"volumeMounts\":
+          {{inputs.parameters.gpu_per_worker}}                           \"rdma/rdma_shared_device_ndr\":
+          {{inputs.parameters.ndr_per_worker}}                         }                       },                       \"volumeMounts\":
           [                         {                           \"name\": \"{{inputs.parameters.public_vol_nm}}\",                           \"mountPath\":
           \"{{inputs.parameters.public_vol_mnt_path}}\"                         },                         {                           \"name\":
           \"{{inputs.parameters.private_vol_nm}}\",                           \"mountPath\":
@@ -524,6 +534,7 @@ spec:
     - {name: cpu_per_worker, value: '16'}
     - {name: memory_per_worker, value: '32'}
     - {name: gpu_per_worker, value: '1'}
+    - {name: ndr_per_worker, value: '125'}
     - {name: node_group_id, value: '1'}
     - {name: node_type, value: ''}
     - {name: public_pvc_nm, value: ''}

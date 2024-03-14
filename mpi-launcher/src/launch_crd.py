@@ -182,6 +182,7 @@ class K8sPodGroup(object):
 
   def create(self, name, namespace, num_pod, schedule_timeout_seconds):
     body = {
+      "kind": "PodGroup",
       "metadata": {
         "name": name,
         "namespace": namespace

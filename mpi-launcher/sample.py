@@ -65,6 +65,7 @@ def custom_pipeline(
         cpu_per_worker: int = 16,
         memory_per_worker: int = 32,
         gpu_per_worker: int = 1,
+        ndr_per_worker: int = 125,
         node_group_id: int = 1,
         node_type: str = "",
         public_pvc_nm: str = "",
@@ -170,6 +171,7 @@ def custom_pipeline(
                           "cpu": %s, \
                           "memory": %sGi, \
                           "nvidia.com/gpu": %s \
+                          "rdma/rdma_shared_device_ndr": %s \
                         } \
                       }, \
                       "volumeMounts": [ \
@@ -207,7 +209,7 @@ def custom_pipeline(
                   "schedulerName": "scheduler-plugins-scheduler" \
                 } \
               } \
-            }' % (run_name, node_group_id, node_type, img, cmd, config_map_name, node_group_id, node_type, device, value, exp_nm, run_name, cpu_per_worker, memory_per_worker, gpu_per_worker, public_vol_nm, public_vol_mnt_path, private_vol_nm, private_vol_mnt_path, public_vol_nm, public_pvc_nm, private_vol_nm, private_pvc_nm),
+            }' % (run_name, node_group_id, node_type, img, cmd, config_map_name, node_group_id, node_type, device, value, exp_nm, run_name, cpu_per_worker, memory_per_worker, gpu_per_worker, ndr_per_worker, public_vol_nm, public_vol_mnt_path, private_vol_nm, private_vol_mnt_path, public_vol_nm, public_pvc_nm, private_vol_nm, private_pvc_nm),
             worker_spec='{ \
               "replicas": %s, \
               "restartPolicy": "Never", \
@@ -280,6 +282,7 @@ def custom_pipeline(
                           "cpu": %s, \
                           "memory": %sGi, \
                           "nvidia.com/gpu": %s \
+                          "rdma/rdma_shared_device_ndr": %s \
                         } \
                       }, \
                       "volumeMounts": [ \
@@ -317,7 +320,7 @@ def custom_pipeline(
                   "schedulerName": "scheduler-plugins-scheduler" \
                 } \
               } \
-            }' % (num_worker, run_name, node_group_id, node_type, img, config_map_name, node_group_id, node_type, device, value, exp_nm, run_name, cpu_per_worker, memory_per_worker, gpu_per_worker, public_vol_nm, public_vol_mnt_path, private_vol_nm, private_vol_mnt_path, public_vol_nm, public_pvc_nm, private_vol_nm, private_pvc_nm),
+            }' % (num_worker, run_name, node_group_id, node_type, img, config_map_name, node_group_id, node_type, device, value, exp_nm, run_name, cpu_per_worker, memory_per_worker, gpu_per_worker, ndr_per_worker, public_vol_nm, public_vol_mnt_path, private_vol_nm, private_vol_mnt_path, public_vol_nm, public_pvc_nm, private_vol_nm, private_pvc_nm),
             delete_after_done=True
         )
 
