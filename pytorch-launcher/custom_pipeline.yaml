@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: launch-kubeflow-pytorchjob-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-03-14T14:07:25.384485',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-03-21T06:41:35.170894',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "An example to launch pytorch.",
       "inputs": [{"default": "", "name": "namespace", "optional": true, "type": "String"},
       {"default": "", "name": "application_id", "optional": true, "type": "String"},
@@ -256,7 +256,8 @@ spec:
       - --masterSpec
       - '{               "replicas": 1,               "restartPolicy": "Never",               "template":
         {                 "metadata": {                   "annotations": {                     "sidecar.istio.io/inject":
-        "false"                   },                   "labels": {                     "app":
+        "false"                   },                   "labels": {                     "aiplatform/task-parallelism":
+        "multi-node",                     "aiplatform/task-type": "pytorch-ddp",                     "app":
         "yunikorn",                     "scheduling.x-k8s.io/pod-group": {{inputs.parameters.run_name}}                   }                 },                 "spec":
         {                   "affinity": {                     "nodeAffinity": {                       "requiredDuringSchedulingIgnoredDuringExecution":
         {                         "nodeSelectorTerms": [{                           "matchExpressions":
@@ -264,7 +265,7 @@ spec:
         "In",                               "values": ["{{inputs.parameters.node_group_id}}"]                             },                             {                               "key":
         "aiplatform/node-type",                               "operator": "In",                               "values":
         ["{{inputs.parameters.node_type}}"]                             }                           ]                         }]                       }                     }                   },                   "containers":
-        [                     {                       "name": "run-op-gpu-pytorch-ddp",                       "image":
+        [                     {                       "name": "pytorch",                       "image":
         "{{inputs.parameters.img}}",                       "command": ["/bin/bash",
         "-c", "{{inputs.parameters.cmd}}"],                       "envFrom": [{                         "configMapRef":
         {                           "name": "{{inputs.parameters.config_map_name}}",                           "optional":
@@ -277,7 +278,7 @@ spec:
         "MLFLOW_RUN_NAME",                           "value": "{{inputs.parameters.run_name}}"                         }                       ],                       "resources":
         {                         "limits": {                           "cpu": {{inputs.parameters.cpu_per_worker}},                           "memory":
         {{inputs.parameters.memory_per_worker}}Gi,                           "nvidia.com/gpu":
-        {{inputs.parameters.gpu_per_worker}}                           "rdma/rdma_shared_device_ndr":
+        {{inputs.parameters.gpu_per_worker}},                           "rdma/rdma_shared_device_ndr":
         {{inputs.parameters.ndr_per_worker}}                         }                       },                       "volumeMounts":
         [                         {                           "name": "{{inputs.parameters.public_vol_nm}}",                           "mountPath":
         "{{inputs.parameters.public_vol_mnt_path}}"                         },                         {                           "name":
@@ -295,7 +296,8 @@ spec:
       - '{               "replicas": {{inputs.parameters.num_worker}},               "restartPolicy":
         "Never",               "template": {                 "metadata": {                   "annotations":
         {                     "sidecar.istio.io/inject": "false"                   },                   "labels":
-        {                     "app": "yunikorn",                     "scheduling.x-k8s.io/pod-group":
+        {                     "aiplatform/task-parallelism": "multi-node",                     "aiplatform/task-type":
+        "pytorch-ddp",                     "app": "yunikorn",                     "scheduling.x-k8s.io/pod-group":
         {{inputs.parameters.run_name}}                   }                 },                 "spec":
         {                   "affinity": {                     "nodeAffinity": {                       "requiredDuringSchedulingIgnoredDuringExecution":
         {                         "nodeSelectorTerms": [{                           "matchExpressions":
@@ -316,7 +318,7 @@ spec:
         "MLFLOW_RUN_NAME",                           "value": "{{inputs.parameters.run_name}}"                         }                       ],                       "resources":
         {                         "limits": {                           "cpu": {{inputs.parameters.cpu_per_worker}},                           "memory":
         {{inputs.parameters.memory_per_worker}}Gi,                           "nvidia.com/gpu":
-        {{inputs.parameters.gpu_per_worker}}                           "rdma/rdma_shared_device_ndr":
+        {{inputs.parameters.gpu_per_worker}},                           "rdma/rdma_shared_device_ndr":
         {{inputs.parameters.ndr_per_worker}}                         }                       },                       "volumeMounts":
         [                         {                           "name": "{{inputs.parameters.public_vol_nm}}",                           "mountPath":
         "{{inputs.parameters.public_vol_mnt_path}}"                         },                         {                           "name":
@@ -405,7 +407,8 @@ spec:
           "Running", "delete_after_done": "True", "job_timeout_minutes": "1440", "master_spec":
           "{               \"replicas\": 1,               \"restartPolicy\": \"Never\",               \"template\":
           {                 \"metadata\": {                   \"annotations\": {                     \"sidecar.istio.io/inject\":
-          \"false\"                   },                   \"labels\": {                     \"app\":
+          \"false\"                   },                   \"labels\": {                     \"aiplatform/task-parallelism\":
+          \"multi-node\",                     \"aiplatform/task-type\": \"pytorch-ddp\",                     \"app\":
           \"yunikorn\",                     \"scheduling.x-k8s.io/pod-group\": {{inputs.parameters.run_name}}                   }                 },                 \"spec\":
           {                   \"affinity\": {                     \"nodeAffinity\":
           {                       \"requiredDuringSchedulingIgnoredDuringExecution\":
@@ -414,7 +417,7 @@ spec:
           \"In\",                               \"values\": [\"{{inputs.parameters.node_group_id}}\"]                             },                             {                               \"key\":
           \"aiplatform/node-type\",                               \"operator\": \"In\",                               \"values\":
           [\"{{inputs.parameters.node_type}}\"]                             }                           ]                         }]                       }                     }                   },                   \"containers\":
-          [                     {                       \"name\": \"run-op-gpu-pytorch-ddp\",                       \"image\":
+          [                     {                       \"name\": \"pytorch\",                       \"image\":
           \"{{inputs.parameters.img}}\",                       \"command\": [\"/bin/bash\",
           \"-c\", \"{{inputs.parameters.cmd}}\"],                       \"envFrom\":
           [{                         \"configMapRef\": {                           \"name\":
@@ -429,7 +432,7 @@ spec:
           {                         \"limits\": {                           \"cpu\":
           {{inputs.parameters.cpu_per_worker}},                           \"memory\":
           {{inputs.parameters.memory_per_worker}}Gi,                           \"nvidia.com/gpu\":
-          {{inputs.parameters.gpu_per_worker}}                           \"rdma/rdma_shared_device_ndr\":
+          {{inputs.parameters.gpu_per_worker}},                           \"rdma/rdma_shared_device_ndr\":
           {{inputs.parameters.ndr_per_worker}}                         }                       },                       \"volumeMounts\":
           [                         {                           \"name\": \"{{inputs.parameters.public_vol_nm}}\",                           \"mountPath\":
           \"{{inputs.parameters.public_vol_mnt_path}}\"                         },                         {                           \"name\":
@@ -447,7 +450,8 @@ spec:
           "version": "v1", "worker_spec": "{               \"replicas\": {{inputs.parameters.num_worker}},               \"restartPolicy\":
           \"Never\",               \"template\": {                 \"metadata\": {                   \"annotations\":
           {                     \"sidecar.istio.io/inject\": \"false\"                   },                   \"labels\":
-          {                     \"app\": \"yunikorn\",                     \"scheduling.x-k8s.io/pod-group\":
+          {                     \"aiplatform/task-parallelism\": \"multi-node\",                     \"aiplatform/task-type\":
+          \"pytorch-ddp\",                     \"app\": \"yunikorn\",                     \"scheduling.x-k8s.io/pod-group\":
           {{inputs.parameters.run_name}}                   }                 },                 \"spec\":
           {                   \"affinity\": {                     \"nodeAffinity\":
           {                       \"requiredDuringSchedulingIgnoredDuringExecution\":
@@ -471,7 +475,7 @@ spec:
           {                         \"limits\": {                           \"cpu\":
           {{inputs.parameters.cpu_per_worker}},                           \"memory\":
           {{inputs.parameters.memory_per_worker}}Gi,                           \"nvidia.com/gpu\":
-          {{inputs.parameters.gpu_per_worker}}                           \"rdma/rdma_shared_device_ndr\":
+          {{inputs.parameters.gpu_per_worker}},                           \"rdma/rdma_shared_device_ndr\":
           {{inputs.parameters.ndr_per_worker}}                         }                       },                       \"volumeMounts\":
           [                         {                           \"name\": \"{{inputs.parameters.public_vol_nm}}\",                           \"mountPath\":
           \"{{inputs.parameters.public_vol_mnt_path}}\"                         },                         {                           \"name\":

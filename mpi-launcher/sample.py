@@ -33,6 +33,22 @@ def Clear_MPI_Job(name, namespace, num_worker, version="v1"):
         print("Exception when calling CustomObjectsApi->delete_namespaced_custom_object: %s\n" % e)
 
     try:
+        api_response = api_instance_custom.delete_namespaced_custom_object(
+            name=name,
+            namespace=namespace,
+            group="scheduling.x-k8s.io",
+            version="v1alpha1",
+            plural="podgroups",
+            body=kubernetes.client.models.V1DeleteOptions(
+                propagation_policy='Foreground',
+                grace_period_seconds=15
+            )
+        )
+        print("PodGroup %s/%s deleted. Status='%s'" % (name, namespace, str(api_response.get("status", None))))
+    except kubernetes.client.rest.ApiException as e:
+        print("Exception when calling CustomObjectsApi->delete_namespaced_custom_object: %s\n" % e)
+
+    try:
         api_response = api_instance_core.delete_namespaced_service(name=f"{name}-launcher", namespace=namespace, body={"propagationPolicy": "Foreground"})
         print("Service %s/%s deleted. Status='%s'" % (f"{name}-launcher", namespace, str(api_response.status)))
         for index in range(int(num_worker)):
@@ -85,6 +101,13 @@ def custom_pipeline(
 
     # MPI-Job Test
     mpi_job_op = components.load_component_from_file('./mpi_job_component.yaml')
+    sshd_cmd = r"sed -i'' -e's/^#   StrictHostKeyChecking ask/   StrictHostKeyChecking no/' /etc/ssh/ssh_config \
+ && sed -i'' -e's/^#PermitRootLogin prohibit-password$/PermitRootLogin yes/' /etc/ssh/sshd_config \
+ && sed -i'' -e's/^#PasswordAuthentication yes$/PasswordAuthentication no/' /etc/ssh/sshd_config \
+ && sed -i'' -e's/^#PermitUserEnvironment no$/PermitUserEnvironment yes/' /etc/ssh/sshd_config \
+ && sed -i'' -e's/^#PermitEmptyPasswords no$/PermitEmptyPasswords no/' /etc/ssh/sshd_config \
+ && sed -i'' -e's/^UsePAM yes/UsePAM no/' /etc/ssh/sshd_config \
+ && /usr/sbin/sshd"
     # name: str = 'deepspeed-cnn-dist-job'
     # img: str = 'yhjh5302/deepspeed-test:latest'
     # cmd: str = '/usr/sbin/sshd && deepspeed -H /etc/mpi/hostfile deepspeed_train.py --deepspeed --deepspeed_config config.json'
@@ -108,6 +131,8 @@ def custom_pipeline(
                     "sidecar.istio.io/inject": "false" \
                   }, \
                   "labels": { \
+                    "aiplatform/task-parallelism": "multi-node", \
+                    "aiplatform/task-type": "deepspeed", \
                     "app": "yunikorn", \
                     "scheduling.x-k8s.io/pod-group": "%s", \
                   } \
@@ -137,7 +162,7 @@ def custom_pipeline(
                     { \
                       "name": "run-op-gpu-deepspeed", \
                       "image": "%s", \
-                      "command": ["/bin/bash", "-c", "%s"], \
+                      "command": ["/bin/bash", "-c", "%s && %s"], \
                       "envFrom": [{ \
                         "configMapRef": { \
                           "name": "%s", \
@@ -170,7 +195,7 @@ def custom_pipeline(
                         "limits": { \
                           "cpu": %s, \
                           "memory": %sGi, \
-                          "nvidia.com/gpu": %s \
+                          "nvidia.com/gpu": %s, \
                           "rdma/rdma_shared_device_ndr": %s \
                         } \
                       }, \
@@ -187,13 +212,20 @@ def custom_pipeline(
                           "name": "dshm", \
                           "mountPath": "/dev/shm" \
                         } \
-                      ] \
+                      ], \
+                      "securityContext": { \
+                        "capabilities": { \
+                          "add": [ \
+                            "IPC_LOCK" \
+                          ] \
+                        } \
+                      } \
                     } \
                   ], \
                   "volumes": [ \
                     { \
                       "name": "%s", \
-                      "persistentVolumeClaim": { "claimName": "%s" } \
+                      "persistentVolumeClaim": { "claimName": "%s"  } \
                     }, \
                     { \
                       "name": "%s", \
@@ -209,7 +241,7 @@ def custom_pipeline(
                   "schedulerName": "scheduler-plugins-scheduler" \
                 } \
               } \
-            }' % (run_name, node_group_id, node_type, img, cmd, config_map_name, node_group_id, node_type, device, value, exp_nm, run_name, cpu_per_worker, memory_per_worker, gpu_per_worker, ndr_per_worker, public_vol_nm, public_vol_mnt_path, private_vol_nm, private_vol_mnt_path, public_vol_nm, public_pvc_nm, private_vol_nm, private_pvc_nm),
+            }' % (run_name, node_group_id, node_type, img, sshd_cmd, cmd, config_map_name, node_group_id, node_type, device, value, exp_nm, run_name, cpu_per_worker, memory_per_worker, gpu_per_worker, ndr_per_worker, public_vol_nm, public_vol_mnt_path, private_vol_nm, private_vol_mnt_path, public_vol_nm, public_pvc_nm, private_vol_nm, private_pvc_nm),
             worker_spec='{ \
               "replicas": %s, \
               "restartPolicy": "Never", \
@@ -219,6 +251,8 @@ def custom_pipeline(
                     "sidecar.istio.io/inject": "false" \
                   }, \
                   "labels": { \
+                    "aiplatform/task-parallelism": "multi-node", \
+                    "aiplatform/task-type": "deepspeed", \
                     "app": "yunikorn", \
                     "scheduling.x-k8s.io/pod-group": %s \
                   } \
@@ -248,7 +282,7 @@ def custom_pipeline(
                     { \
                       "name": "deepspeed", \
                       "image": "%s", \
-                      "command": ["/bin/bash", "-c", "sleep 864000"], \
+                      "command": ["/bin/bash", "-c", "%s && sleep infinity"], \
                       "envFrom": [{ \
                         "configMapRef": { \
                           "name": "%s", \
@@ -281,7 +315,7 @@ def custom_pipeline(
                         "limits": { \
                           "cpu": %s, \
                           "memory": %sGi, \
-                          "nvidia.com/gpu": %s \
+                          "nvidia.com/gpu": %s, \
                           "rdma/rdma_shared_device_ndr": %s \
                         } \
                       }, \
@@ -298,7 +332,14 @@ def custom_pipeline(
                           "name": "dshm", \
                           "mountPath": "/dev/shm" \
                         } \
-                      ] \
+                      ], \
+                      "securityContext": { \
+                        "capabilities": { \
+                          "add": [ \
+                            "IPC_LOCK" \
+                          ] \
+                        } \
+                      } \
                     } \
                   ], \
                   "volumes": [ \
@@ -320,7 +361,7 @@ def custom_pipeline(
                   "schedulerName": "scheduler-plugins-scheduler" \
                 } \
               } \
-            }' % (num_worker, run_name, node_group_id, node_type, img, config_map_name, node_group_id, node_type, device, value, exp_nm, run_name, cpu_per_worker, memory_per_worker, gpu_per_worker, ndr_per_worker, public_vol_nm, public_vol_mnt_path, private_vol_nm, private_vol_mnt_path, public_vol_nm, public_pvc_nm, private_vol_nm, private_pvc_nm),
+            }' % (num_worker, run_name, node_group_id, node_type, img, sshd_cmd, config_map_name, node_group_id, node_type, device, value, exp_nm, run_name, cpu_per_worker, memory_per_worker, gpu_per_worker, ndr_per_worker, public_vol_nm, public_vol_mnt_path, private_vol_nm, private_vol_mnt_path, public_vol_nm, public_pvc_nm, private_vol_nm, private_pvc_nm),
             delete_after_done=True
         )
 

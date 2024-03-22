@@ -31,6 +31,22 @@ def Clear_PyTorchJob(name, namespace, version="v1"):
     except kubernetes.client.rest.ApiException as e:
         print("Exception when calling CustomObjectsApi->delete_namespaced_custom_object: %s\n" % e)
 
+    try:
+        api_response = api_instance_custom.delete_namespaced_custom_object(
+            name=name,
+            namespace=namespace,
+            group="scheduling.x-k8s.io",
+            version="v1alpha1",
+            plural="podgroups",
+            body=kubernetes.client.models.V1DeleteOptions(
+                propagation_policy='Foreground',
+                grace_period_seconds=15
+            )
+        )
+        print("PodGroup %s/%s deleted. Status='%s'" % (name, namespace, str(api_response.get("status", None))))
+    except kubernetes.client.rest.ApiException as e:
+        print("Exception when calling CustomObjectsApi->delete_namespaced_custom_object: %s\n" % e)
+
 
 clear_pytorchjob_op = components.func_to_container_op(func=Clear_PyTorchJob, packages_to_install=['kubernetes'])
 
@@ -91,117 +107,8 @@ def custom_pipeline(
                     "sidecar.istio.io/inject": "false" \
                   }, \
                   "labels": { \
-                    "app": "yunikorn", \
-                    "scheduling.x-k8s.io/pod-group": %s \
-                  } \
-                }, \
-                "spec": { \
-                  "affinity": { \
-                    "nodeAffinity": { \
-                      "requiredDuringSchedulingIgnoredDuringExecution": { \
-                        "nodeSelectorTerms": [{ \
-                          "matchExpressions": [ \
-                            { \
-                              "key": "aiplatform/node-group-id", \
-                              "operator": "In", \
-                              "values": ["%s"] \
-                            }, \
-                            { \
-                              "key": "aiplatform/node-type", \
-                              "operator": "In", \
-                              "values": ["%s"] \
-                            } \
-                          ] \
-                        }] \
-                      } \
-                    } \
-                  }, \
-                  "containers": [ \
-                    { \
-                      "name": "run-op-gpu-pytorch-ddp", \
-                      "image": "%s", \
-                      "command": ["/bin/bash", "-c", "%s"], \
-                      "envFrom": [{ \
-                        "configMapRef": { \
-                          "name": "%s", \
-                          "optional": true \
-                        } \
-                      }], \
-                      "env": [ \
-                        { \
-                          "name": "node_group_id", \
-                          "value": "%s" \
-                        }, \
-                        { \
-                          "name": "node_type", \
-                          "value": "%s" \
-                        }, \
-                        { \
-                          "name": "%s", \
-                          "value": "%s" \
-                        }, \
-                        { \
-                          "name": "MLFLOW_EXPERIMENT_NAME", \
-                          "value": "%s" \
-                        }, \
-                        { \
-                          "name": "MLFLOW_RUN_NAME", \
-                          "value": "%s" \
-                        } \
-                      ], \
-                      "resources": { \
-                        "limits": { \
-                          "cpu": %s, \
-                          "memory": %sGi, \
-                          "nvidia.com/gpu": %s \
-                          "rdma/rdma_shared_device_ndr": %s \
-                        } \
-                      }, \
-                      "volumeMounts": [ \
-                        { \
-                          "name": "%s", \
-                          "mountPath": "%s" \
-                        }, \
-                        { \
-                          "name": "%s", \
-                          "mountPath": "%s" \
-                        }, \
-                        { \
-                          "name": "dshm", \
-                          "mountPath": "/dev/shm" \
-                        } \
-                      ] \
-                    } \
-                  ], \
-                  "volumes": [ \
-                    { \
-                      "name": "%s", \
-                      "persistentVolumeClaim": { "claimName": "%s" } \
-                    }, \
-                    { \
-                      "name": "%s", \
-                      "persistentVolumeClaim": { "claimName": "%s" } \
-                    }, \
-                    { \
-                      "name": "dshm", \
-                      "emptyDir": { \
-                        "medium": "Memory" \
-                      } \
-                    } \
-                  ], \
-                  "schedulerName": "scheduler-plugins-scheduler" \
-                } \
-              } \
-            }' % (run_name, node_group_id, node_type, img, cmd, config_map_name, node_group_id, node_type, device, value, exp_nm, run_name, cpu_per_worker, memory_per_worker, gpu_per_worker, ndr_per_worker, public_vol_nm, public_vol_mnt_path, private_vol_nm, private_vol_mnt_path, public_vol_nm, public_pvc_nm, private_vol_nm, private_pvc_nm),
-            worker_spec='{ \
-              "replicas": %s, \
-              "restartPolicy": "Never", \
-              "template": { \
-                "metadata": { \
-                  "annotations": { \
-                    "sidecar.istio.io/inject": "false" \
-                  }, \
-                  "labels": { \
+                    "aiplatform/task-parallelism": "multi-node", \
+                    "aiplatform/task-type": "pytorch-ddp", \
                     "app": "yunikorn", \
                     "scheduling.x-k8s.io/pod-group": %s \
                   } \
@@ -264,7 +171,7 @@ def custom_pipeline(
                         "limits": { \
                           "cpu": %s, \
                           "memory": %sGi, \
-                          "nvidia.com/gpu": %s \
+                          "nvidia.com/gpu": %s, \
                           "rdma/rdma_shared_device_ndr": %s \
                         } \
                       }, \
@@ -282,6 +189,133 @@ def custom_pipeline(
                           "mountPath": "/dev/shm" \
                         } \
                       ] \
+                      "securityContext": { \
+                        "capabilities": { \
+                          "add": [ \
+                            "IPC_LOCK" \
+                          ] \
+                        } \
+                      } \
+                    } \
+                  ], \
+                  "volumes": [ \
+                    { \
+                      "name": "%s", \
+                      "persistentVolumeClaim": { "claimName": "%s" } \
+                    }, \
+                    { \
+                      "name": "%s", \
+                      "persistentVolumeClaim": { "claimName": "%s" } \
+                    }, \
+                    { \
+                      "name": "dshm", \
+                      "emptyDir": { \
+                        "medium": "Memory" \
+                      } \
+                    } \
+                  ], \
+                  "schedulerName": "scheduler-plugins-scheduler" \
+                } \
+              } \
+            }' % (run_name, node_group_id, node_type, img, cmd, config_map_name, node_group_id, node_type, device, value, exp_nm, run_name, cpu_per_worker, memory_per_worker, gpu_per_worker, ndr_per_worker, public_vol_nm, public_vol_mnt_path, private_vol_nm, private_vol_mnt_path, public_vol_nm, public_pvc_nm, private_vol_nm, private_pvc_nm),
+            worker_spec='{ \
+              "replicas": %s, \
+              "restartPolicy": "Never", \
+              "template": { \
+                "metadata": { \
+                  "annotations": { \
+                    "sidecar.istio.io/inject": "false" \
+                  }, \
+                  "labels": { \
+                    "aiplatform/task-parallelism": "multi-node", \
+                    "aiplatform/task-type": "pytorch-ddp", \
+                    "app": "yunikorn", \
+                    "scheduling.x-k8s.io/pod-group": %s \
+                  } \
+                }, \
+                "spec": { \
+                  "affinity": { \
+                    "nodeAffinity": { \
+                      "requiredDuringSchedulingIgnoredDuringExecution": { \
+                        "nodeSelectorTerms": [{ \
+                          "matchExpressions": [ \
+                            { \
+                              "key": "aiplatform/node-group-id", \
+                              "operator": "In", \
+                              "values": ["%s"] \
+                            }, \
+                            { \
+                              "key": "aiplatform/node-type", \
+                              "operator": "In", \
+                              "values": ["%s"] \
+                            } \
+                          ] \
+                        }] \
+                      } \
+                    } \
+                  }, \
+                  "containers": [ \
+                    { \
+                      "name": "pytorch", \
+                      "image": "%s", \
+                      "command": ["/bin/bash", "-c", "%s"], \
+                      "envFrom": [{ \
+                        "configMapRef": { \
+                          "name": "%s", \
+                          "optional": true \
+                        } \
+                      }], \
+                      "env": [ \
+                        { \
+                          "name": "node_group_id", \
+                          "value": "%s" \
+                        }, \
+                        { \
+                          "name": "node_type", \
+                          "value": "%s" \
+                        }, \
+                        { \
+                          "name": "%s", \
+                          "value": "%s" \
+                        }, \
+                        { \
+                          "name": "MLFLOW_EXPERIMENT_NAME", \
+                          "value": "%s" \
+                        }, \
+                        { \
+                          "name": "MLFLOW_RUN_NAME", \
+                          "value": "%s" \
+                        } \
+                      ], \
+                      "resources": { \
+                        "limits": { \
+                          "cpu": %s, \
+                          "memory": %sGi, \
+                          "nvidia.com/gpu": %s, \
+                          "rdma/rdma_shared_device_ndr": %s \
+                        } \
+                      }, \
+                      "volumeMounts": [ \
+                        { \
+                          "name": "%s", \
+                          "mountPath": "%s" \
+                        }, \
+                        { \
+                          "name": "%s", \
+                          "mountPath": "%s" \
+                        }, \
+                        { \
+                          "name": "dshm", \
+                          "mountPath": "/dev/shm" \
+                        } \
+                      ] \
+                      "securityContext": { \
+                        "capabilities": { \
+                          "add": [ \
+                            "IPC_LOCK" \
+                          ] \
+                        } \
+                      } \
                     } \
                   ], \
                   "volumes": [ \
