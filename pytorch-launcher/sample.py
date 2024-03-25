@@ -62,10 +62,9 @@ def custom_pipeline(
         img: str = "",
         cmd: str = "",
         num_worker: int = 3,
-        cpu_per_worker: int = 16,
-        memory_per_worker: int = 32,
+        cpu_per_worker: int = 20,
+        memory_per_worker: int = 80,
         gpu_per_worker: int = 1,
-        ndr_per_worker: int = 125,
         node_group_id: int = 1,
         node_type: str = "",
         public_pvc_nm: str = "",
@@ -88,6 +87,10 @@ def custom_pipeline(
     # name: str = 'pytorch-cnn-dist-job'
     # img: str = 'yhjh5302/pytorchjob-test:latest'
     # cmd: str = 'cd /workspace && python3 pytorchjob_train.py --batch_size=1 --backend=gloo'
+    # cpu_per_worker = 20
+    # memory_per_worker = 80
+    # gpu_per_worker = 1
+    ndr_per_worker = 1
 
     handle_exit = clear_pytorchjob_op(
         name=run_name,
@@ -110,7 +113,7 @@ def custom_pipeline(
                     "aiplatform/task-parallelism": "multi-node", \
                     "aiplatform/task-type": "pytorch-ddp", \
                     "app": "yunikorn", \
-                    "scheduling.x-k8s.io/pod-group": %s \
+                    "scheduling.x-k8s.io/pod-group": "%s" \
                   } \
                 }, \
                 "spec": { \
@@ -188,7 +191,7 @@ def custom_pipeline(
                           "name": "dshm", \
                           "mountPath": "/dev/shm" \
                         } \
-                      ] \
+                      ], \
                       "securityContext": { \
                         "capabilities": { \
                           "add": [ \
@@ -230,7 +233,7 @@ def custom_pipeline(
                     "aiplatform/task-parallelism": "multi-node", \
                     "aiplatform/task-type": "pytorch-ddp", \
                     "app": "yunikorn", \
-                    "scheduling.x-k8s.io/pod-group": %s \
+                    "scheduling.x-k8s.io/pod-group": "%s" \
                   } \
                 }, \
                 "spec": { \
@@ -308,7 +311,7 @@ def custom_pipeline(
                           "name": "dshm", \
                           "mountPath": "/dev/shm" \
                         } \
-                      ] \
+                      ], \
                       "securityContext": { \
                         "capabilities": { \
                           "add": [ \

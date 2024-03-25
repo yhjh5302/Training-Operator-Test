@@ -78,10 +78,9 @@ def custom_pipeline(
         img: str = "",
         cmd: str = "",
         num_worker: int = 3,
-        cpu_per_worker: int = 16,
-        memory_per_worker: int = 32,
+        cpu_per_worker: int = 20,
+        memory_per_worker: int = 80,
         gpu_per_worker: int = 1,
-        ndr_per_worker: int = 125,
         node_group_id: int = 1,
         node_type: str = "",
         public_pvc_nm: str = "",
@@ -111,6 +110,10 @@ def custom_pipeline(
     # name: str = 'deepspeed-cnn-dist-job'
     # img: str = 'yhjh5302/deepspeed-test:latest'
     # cmd: str = '/usr/sbin/sshd && deepspeed -H /etc/mpi/hostfile deepspeed_train.py --deepspeed --deepspeed_config config.json'
+    # cpu_per_worker = 20
+    # memory_per_worker = 80
+    # gpu_per_worker = 1
+    ndr_per_worker = 1
 
     handle_exit = clear_mpijob_op(
         name=run_name,
@@ -134,7 +137,7 @@ def custom_pipeline(
                     "aiplatform/task-parallelism": "multi-node", \
                     "aiplatform/task-type": "deepspeed", \
                     "app": "yunikorn", \
-                    "scheduling.x-k8s.io/pod-group": "%s", \
+                    "scheduling.x-k8s.io/pod-group": "%s" \
                   } \
                 }, \
                 "spec": { \
@@ -160,7 +163,7 @@ def custom_pipeline(
                   }, \
                   "containers": [ \
                     { \
-                      "name": "run-op-gpu-deepspeed", \
+                      "name": "deepspeed", \
                       "image": "%s", \
                       "command": ["/bin/bash", "-c", "%s && %s"], \
                       "envFrom": [{ \
@@ -225,7 +228,7 @@ def custom_pipeline(
                   "volumes": [ \
                     { \
                       "name": "%s", \
-                      "persistentVolumeClaim": { "claimName": "%s"  } \
+                      "persistentVolumeClaim": { "claimName": "%s" } \
                     }, \
                     { \
                       "name": "%s", \
@@ -254,7 +257,7 @@ def custom_pipeline(
                     "aiplatform/task-parallelism": "multi-node", \
                     "aiplatform/task-type": "deepspeed", \
                     "app": "yunikorn", \
-                    "scheduling.x-k8s.io/pod-group": %s \
+                    "scheduling.x-k8s.io/pod-group": "%s" \
                   } \
                 }, \
                 "spec": { \

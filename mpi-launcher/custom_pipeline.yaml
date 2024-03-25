@@ -2,17 +2,16 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: launch-kubeflow-mpi-job-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-03-21T06:41:30.639954',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-03-25T04:02:59.373499',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "An example to launch deepspeed.",
       "inputs": [{"default": "", "name": "namespace", "optional": true, "type": "String"},
       {"default": "", "name": "application_id", "optional": true, "type": "String"},
       {"default": "", "name": "queue", "optional": true, "type": "String"}, {"default":
       "", "name": "img", "optional": true, "type": "String"}, {"default": "", "name":
       "cmd", "optional": true, "type": "String"}, {"default": "3", "name": "num_worker",
-      "optional": true, "type": "Integer"}, {"default": "16", "name": "cpu_per_worker",
-      "optional": true, "type": "Integer"}, {"default": "32", "name": "memory_per_worker",
+      "optional": true, "type": "Integer"}, {"default": "20", "name": "cpu_per_worker",
+      "optional": true, "type": "Integer"}, {"default": "80", "name": "memory_per_worker",
       "optional": true, "type": "Integer"}, {"default": "1", "name": "gpu_per_worker",
-      "optional": true, "type": "Integer"}, {"default": "125", "name": "ndr_per_worker",
       "optional": true, "type": "Integer"}, {"default": "1", "name": "node_group_id",
       "optional": true, "type": "Integer"}, {"default": "", "name": "node_type", "optional":
       true, "type": "String"}, {"default": "", "name": "public_pvc_nm", "optional":
@@ -72,6 +71,22 @@ spec:
                 print("Exception when calling CustomObjectsApi->delete_namespaced_custom_object: %s\n" % e)
 
             try:
+                api_response = api_instance_custom.delete_namespaced_custom_object(
+                    name=name,
+                    namespace=namespace,
+                    group="scheduling.x-k8s.io",
+                    version="v1alpha1",
+                    plural="podgroups",
+                    body=kubernetes.client.models.V1DeleteOptions(
+                        propagation_policy='Foreground',
+                        grace_period_seconds=15
+                    )
+                )
+                print("PodGroup %s/%s deleted. Status='%s'" % (name, namespace, str(api_response.get("status", None))))
+            except kubernetes.client.rest.ApiException as e:
+                print("Exception when calling CustomObjectsApi->delete_namespaced_custom_object: %s\n" % e)
+
+            try:
                 api_response = api_instance_core.delete_namespaced_service(name=f"{name}-launcher", namespace=namespace, body={"propagationPolicy": "Foreground"})
                 print("Service %s/%s deleted. Status='%s'" % (f"{name}-launcher", namespace, str(api_response.status)))
                 for index in range(int(num_worker)):
@@ -123,6 +138,10 @@ spec:
           %s/%s deleted. Status=''%s''\" % (name, namespace, str(api_response.get(\"status\",
           None))))\n    except kubernetes.client.rest.ApiException as e:\n        print(\"Exception
           when calling CustomObjectsApi->delete_namespaced_custom_object: %s\\n\"
+          % e)\n\n    try:\n        api_response = api_instance_custom.delete_namespaced_custom_object(\n            name=name,\n            namespace=namespace,\n            group=\"scheduling.x-k8s.io\",\n            version=\"v1alpha1\",\n            plural=\"podgroups\",\n            body=kubernetes.client.models.V1DeleteOptions(\n                propagation_policy=''Foreground'',\n                grace_period_seconds=15\n            )\n        )\n        print(\"PodGroup
+          %s/%s deleted. Status=''%s''\" % (name, namespace, str(api_response.get(\"status\",
+          None))))\n    except kubernetes.client.rest.ApiException as e:\n        print(\"Exception
+          when calling CustomObjectsApi->delete_namespaced_custom_object: %s\\n\"
           % e)\n\n    try:\n        api_response = api_instance_core.delete_namespaced_service(name=f\"{name}-launcher\",
           namespace=namespace, body={\"propagationPolicy\": \"Foreground\"})\n        print(\"Service
           %s/%s deleted. Status=''%s''\" % (f\"{name}-launcher\", namespace, str(api_response.status)))\n        for
@@ -161,7 +180,6 @@ spec:
       - {name: img}
       - {name: memory_per_worker}
       - {name: namespace}
-      - {name: ndr_per_worker}
       - {name: node_group_id}
       - {name: node_type}
       - {name: num_worker}
@@ -196,7 +214,6 @@ spec:
           - {name: img, value: '{{inputs.parameters.img}}'}
           - {name: memory_per_worker, value: '{{inputs.parameters.memory_per_worker}}'}
           - {name: namespace, value: '{{inputs.parameters.namespace}}'}
-          - {name: ndr_per_worker, value: '{{inputs.parameters.ndr_per_worker}}'}
           - {name: node_group_id, value: '{{inputs.parameters.node_group_id}}'}
           - {name: node_type, value: '{{inputs.parameters.node_type}}'}
           - {name: num_worker, value: '{{inputs.parameters.num_worker}}'}
@@ -220,7 +237,6 @@ spec:
       - {name: img}
       - {name: memory_per_worker}
       - {name: namespace}
-      - {name: ndr_per_worker}
       - {name: node_group_id}
       - {name: node_type}
       - {name: num_worker}
@@ -247,7 +263,6 @@ spec:
           - {name: img, value: '{{inputs.parameters.img}}'}
           - {name: memory_per_worker, value: '{{inputs.parameters.memory_per_worker}}'}
           - {name: namespace, value: '{{inputs.parameters.namespace}}'}
-          - {name: ndr_per_worker, value: '{{inputs.parameters.ndr_per_worker}}'}
           - {name: node_group_id, value: '{{inputs.parameters.node_group_id}}'}
           - {name: node_type, value: '{{inputs.parameters.node_type}}'}
           - {name: num_worker, value: '{{inputs.parameters.num_worker}}'}
@@ -292,22 +307,22 @@ spec:
       - v1
       - --launcherSpec
       - |-
-        {               "replicas": 1,               "restartPolicy": "Never",               "template": {                 "metadata": {                   "annotations": {                     "sidecar.istio.io/inject": "false"                   },                   "labels": {                     "aiplatform/task-parallelism": "multi-node",                     "aiplatform/task-type": "deepspeed",                     "app": "yunikorn",                     "scheduling.x-k8s.io/pod-group": "{{inputs.parameters.run_name}}",                   }                 },                 "spec": {                   "affinity": {                     "nodeAffinity": {                       "requiredDuringSchedulingIgnoredDuringExecution": {                         "nodeSelectorTerms": [{                           "matchExpressions": [                             {                               "key": "aiplatform/node-group-id",                               "operator": "In",                               "values": ["{{inputs.parameters.node_group_id}}"]                             },                             {                               "key": "aiplatform/node-type",                               "operator": "In",                               "values": ["{{inputs.parameters.node_type}}"]                             }                           ]                         }]                       }                     }                   },                   "containers": [                     {                       "name": "run-op-gpu-deepspeed",                       "image": "{{inputs.parameters.img}}",                       "command": ["/bin/bash", "-c", "sed -i'' -e's/^#   StrictHostKeyChecking ask/   StrictHostKeyChecking no/' /etc/ssh/ssh_config \
+        {               "replicas": 1,               "restartPolicy": "Never",               "template": {                 "metadata": {                   "annotations": {                     "sidecar.istio.io/inject": "false"                   },                   "labels": {                     "aiplatform/task-parallelism": "multi-node",                     "aiplatform/task-type": "deepspeed",                     "app": "yunikorn",                     "scheduling.x-k8s.io/pod-group": "{{inputs.parameters.run_name}}"                   }                 },                 "spec": {                   "affinity": {                     "nodeAffinity": {                       "requiredDuringSchedulingIgnoredDuringExecution": {                         "nodeSelectorTerms": [{                           "matchExpressions": [                             {                               "key": "aiplatform/node-group-id",                               "operator": "In",                               "values": ["{{inputs.parameters.node_group_id}}"]                             },                             {                               "key": "aiplatform/node-type",                               "operator": "In",                               "values": ["{{inputs.parameters.node_type}}"]                             }                           ]                         }]                       }                     }                   },                   "containers": [                     {                       "name": "deepspeed",                       "image": "{{inputs.parameters.img}}",                       "command": ["/bin/bash", "-c", "sed -i'' -e's/^#   StrictHostKeyChecking ask/   StrictHostKeyChecking no/' /etc/ssh/ssh_config \
          && sed -i'' -e's/^#PermitRootLogin prohibit-password$/PermitRootLogin yes/' /etc/ssh/sshd_config \
          && sed -i'' -e's/^#PasswordAuthentication yes$/PasswordAuthentication no/' /etc/ssh/sshd_config \
          && sed -i'' -e's/^#PermitUserEnvironment no$/PermitUserEnvironment yes/' /etc/ssh/sshd_config \
          && sed -i'' -e's/^#PermitEmptyPasswords no$/PermitEmptyPasswords no/' /etc/ssh/sshd_config \
          && sed -i'' -e's/^UsePAM yes/UsePAM no/' /etc/ssh/sshd_config \
-         && /usr/sbin/sshd && {{inputs.parameters.cmd}}"],                       "envFrom": [{                         "configMapRef": {                           "name": "{{inputs.parameters.config_map_name}}",                           "optional": true                         }                       }],                       "env": [                         {                           "name": "node_group_id",                           "value": "{{inputs.parameters.node_group_id}}"                         },                         {                           "name": "node_type",                           "value": "{{inputs.parameters.node_type}}"                         },                         {                           "name": "{{inputs.parameters.device}}",                           "value": "{{inputs.parameters.value}}"                         },                         {                           "name": "MLFLOW_EXPERIMENT_NAME",                           "value": "{{inputs.parameters.exp_nm}}"                         },                         {                           "name": "MLFLOW_RUN_NAME",                           "value": "{{inputs.parameters.run_name}}"                         }                       ],                       "resources": {                         "limits": {                           "cpu": {{inputs.parameters.cpu_per_worker}},                           "memory": {{inputs.parameters.memory_per_worker}}Gi,                           "nvidia.com/gpu": {{inputs.parameters.gpu_per_worker}},                           "rdma/rdma_shared_device_ndr": {{inputs.parameters.ndr_per_worker}}                         }                       },                       "volumeMounts": [                         {                           "name": "{{inputs.parameters.public_vol_nm}}",                           "mountPath": "{{inputs.parameters.public_vol_mnt_path}}"                         },                         {                           "name": "{{inputs.parameters.private_vol_nm}}",                           "mountPath": "{{inputs.parameters.private_vol_mnt_path}}"                         },                         {                           "name": "dshm",                           "mountPath": "/dev/shm"                         }                       ],                       "securityContext": {                         "privileged": true                       }                     }                   ],                   "volumes": [                     {                       "name": "{{inputs.parameters.public_vol_nm}}",                       "persistentVolumeClaim": { "claimName": "{{inputs.parameters.public_pvc_nm}}"  }                     },                     {                       "name": "{{inputs.parameters.private_vol_nm}}",                       "persistentVolumeClaim": { "claimName": "{{inputs.parameters.private_pvc_nm}}" }                     },                     {                       "name": "dshm",                       "emptyDir": {                         "medium": "Memory"                       }                     }                   ],                   "schedulerName": "scheduler-plugins-scheduler"                 }               }             }
+         && /usr/sbin/sshd && {{inputs.parameters.cmd}}"],                       "envFrom": [{                         "configMapRef": {                           "name": "{{inputs.parameters.config_map_name}}",                           "optional": true                         }                       }],                       "env": [                         {                           "name": "node_group_id",                           "value": "{{inputs.parameters.node_group_id}}"                         },                         {                           "name": "node_type",                           "value": "{{inputs.parameters.node_type}}"                         },                         {                           "name": "{{inputs.parameters.device}}",                           "value": "{{inputs.parameters.value}}"                         },                         {                           "name": "MLFLOW_EXPERIMENT_NAME",                           "value": "{{inputs.parameters.exp_nm}}"                         },                         {                           "name": "MLFLOW_RUN_NAME",                           "value": "{{inputs.parameters.run_name}}"                         }                       ],                       "resources": {                         "limits": {                           "cpu": {{inputs.parameters.cpu_per_worker}},                           "memory": {{inputs.parameters.memory_per_worker}}Gi,                           "nvidia.com/gpu": {{inputs.parameters.gpu_per_worker}},                           "rdma/rdma_shared_device_ndr": 1                         }                       },                       "volumeMounts": [                         {                           "name": "{{inputs.parameters.public_vol_nm}}",                           "mountPath": "{{inputs.parameters.public_vol_mnt_path}}"                         },                         {                           "name": "{{inputs.parameters.private_vol_nm}}",                           "mountPath": "{{inputs.parameters.private_vol_mnt_path}}"                         },                         {                           "name": "dshm",                           "mountPath": "/dev/shm"                         }                       ],                       "securityContext": {                         "capabilities": {                           "add": [                             "IPC_LOCK"                           ]                         }                       }                     }                   ],                   "volumes": [                     {                       "name": "{{inputs.parameters.public_vol_nm}}",                       "persistentVolumeClaim": { "claimName": "{{inputs.parameters.public_pvc_nm}}" }                     },                     {                       "name": "{{inputs.parameters.private_vol_nm}}",                       "persistentVolumeClaim": { "claimName": "{{inputs.parameters.private_pvc_nm}}" }                     },                     {                       "name": "dshm",                       "emptyDir": {                         "medium": "Memory"                       }                     }                   ],                   "schedulerName": "scheduler-plugins-scheduler"                 }               }             }
       - --workerSpec
       - |-
-        {               "replicas": {{inputs.parameters.num_worker}},               "restartPolicy": "Never",               "template": {                 "metadata": {                   "annotations": {                     "sidecar.istio.io/inject": "false"                   },                   "labels": {                     "aiplatform/task-parallelism": "multi-node",                     "aiplatform/task-type": "deepspeed",                     "app": "yunikorn",                     "scheduling.x-k8s.io/pod-group": {{inputs.parameters.run_name}}                   }                 },                 "spec": {                   "affinity": {                     "nodeAffinity": {                       "requiredDuringSchedulingIgnoredDuringExecution": {                         "nodeSelectorTerms": [{                           "matchExpressions": [                             {                               "key": "aiplatform/node-group-id",                               "operator": "In",                               "values": ["{{inputs.parameters.node_group_id}}"]                             },                             {                               "key": "aiplatform/node-type",                               "operator": "In",                               "values": ["{{inputs.parameters.node_type}}"]                             }                           ]                         }]                       }                     }                   },                   "containers": [                     {                       "name": "deepspeed",                       "image": "{{inputs.parameters.img}}",                       "command": ["/bin/bash", "-c", "sed -i'' -e's/^#   StrictHostKeyChecking ask/   StrictHostKeyChecking no/' /etc/ssh/ssh_config \
+        {               "replicas": {{inputs.parameters.num_worker}},               "restartPolicy": "Never",               "template": {                 "metadata": {                   "annotations": {                     "sidecar.istio.io/inject": "false"                   },                   "labels": {                     "aiplatform/task-parallelism": "multi-node",                     "aiplatform/task-type": "deepspeed",                     "app": "yunikorn",                     "scheduling.x-k8s.io/pod-group": "{{inputs.parameters.run_name}}"                   }                 },                 "spec": {                   "affinity": {                     "nodeAffinity": {                       "requiredDuringSchedulingIgnoredDuringExecution": {                         "nodeSelectorTerms": [{                           "matchExpressions": [                             {                               "key": "aiplatform/node-group-id",                               "operator": "In",                               "values": ["{{inputs.parameters.node_group_id}}"]                             },                             {                               "key": "aiplatform/node-type",                               "operator": "In",                               "values": ["{{inputs.parameters.node_type}}"]                             }                           ]                         }]                       }                     }                   },                   "containers": [                     {                       "name": "deepspeed",                       "image": "{{inputs.parameters.img}}",                       "command": ["/bin/bash", "-c", "sed -i'' -e's/^#   StrictHostKeyChecking ask/   StrictHostKeyChecking no/' /etc/ssh/ssh_config \
          && sed -i'' -e's/^#PermitRootLogin prohibit-password$/PermitRootLogin yes/' /etc/ssh/sshd_config \
          && sed -i'' -e's/^#PasswordAuthentication yes$/PasswordAuthentication no/' /etc/ssh/sshd_config \
          && sed -i'' -e's/^#PermitUserEnvironment no$/PermitUserEnvironment yes/' /etc/ssh/sshd_config \
          && sed -i'' -e's/^#PermitEmptyPasswords no$/PermitEmptyPasswords no/' /etc/ssh/sshd_config \
          && sed -i'' -e's/^UsePAM yes/UsePAM no/' /etc/ssh/sshd_config \
-         && /usr/sbin/sshd && sleep infinity"],                       "envFrom": [{                         "configMapRef": {                           "name": "{{inputs.parameters.config_map_name}}",                           "optional": true                         }                       }],                       "env": [                         {                           "name": "node_group_id",                           "value": "{{inputs.parameters.node_group_id}}"                         },                         {                           "name": "node_type",                           "value": "{{inputs.parameters.node_type}}"                         },                         {                           "name": "{{inputs.parameters.device}}",                           "value": "{{inputs.parameters.value}}"                         },                         {                           "name": "MLFLOW_EXPERIMENT_NAME",                           "value": "{{inputs.parameters.exp_nm}}"                         },                         {                           "name": "MLFLOW_RUN_NAME",                           "value": "{{inputs.parameters.run_name}}"                         }                       ],                       "resources": {                         "limits": {                           "cpu": {{inputs.parameters.cpu_per_worker}},                           "memory": {{inputs.parameters.memory_per_worker}}Gi,                           "nvidia.com/gpu": {{inputs.parameters.gpu_per_worker}},                           "rdma/rdma_shared_device_ndr": {{inputs.parameters.ndr_per_worker}}                         }                       },                       "volumeMounts": [                         {                           "name": "{{inputs.parameters.public_vol_nm}}",                           "mountPath": "{{inputs.parameters.public_vol_mnt_path}}"                         },                         {                           "name": "{{inputs.parameters.private_vol_nm}}",                           "mountPath": "{{inputs.parameters.private_vol_mnt_path}}"                         },                         {                           "name": "dshm",                           "mountPath": "/dev/shm"                         }                       ],                       "securityContext": {                         "privileged": true                       }                     }                   ],                   "volumes": [                     {                       "name": "{{inputs.parameters.public_vol_nm}}",                       "persistentVolumeClaim": { "claimName": "{{inputs.parameters.public_pvc_nm}}" }                     },                     {                       "name": "{{inputs.parameters.private_vol_nm}}",                       "persistentVolumeClaim": { "claimName": "{{inputs.parameters.private_pvc_nm}}" }                     },                     {                       "name": "dshm",                       "emptyDir": {                         "medium": "Memory"                       }                     }                   ],                   "schedulerName": "scheduler-plugins-scheduler"                 }               }             }
+         && /usr/sbin/sshd && sleep infinity"],                       "envFrom": [{                         "configMapRef": {                           "name": "{{inputs.parameters.config_map_name}}",                           "optional": true                         }                       }],                       "env": [                         {                           "name": "node_group_id",                           "value": "{{inputs.parameters.node_group_id}}"                         },                         {                           "name": "node_type",                           "value": "{{inputs.parameters.node_type}}"                         },                         {                           "name": "{{inputs.parameters.device}}",                           "value": "{{inputs.parameters.value}}"                         },                         {                           "name": "MLFLOW_EXPERIMENT_NAME",                           "value": "{{inputs.parameters.exp_nm}}"                         },                         {                           "name": "MLFLOW_RUN_NAME",                           "value": "{{inputs.parameters.run_name}}"                         }                       ],                       "resources": {                         "limits": {                           "cpu": {{inputs.parameters.cpu_per_worker}},                           "memory": {{inputs.parameters.memory_per_worker}}Gi,                           "nvidia.com/gpu": {{inputs.parameters.gpu_per_worker}},                           "rdma/rdma_shared_device_ndr": 1                         }                       },                       "volumeMounts": [                         {                           "name": "{{inputs.parameters.public_vol_nm}}",                           "mountPath": "{{inputs.parameters.public_vol_mnt_path}}"                         },                         {                           "name": "{{inputs.parameters.private_vol_nm}}",                           "mountPath": "{{inputs.parameters.private_vol_mnt_path}}"                         },                         {                           "name": "dshm",                           "mountPath": "/dev/shm"                         }                       ],                       "securityContext": {                         "capabilities": {                           "add": [                             "IPC_LOCK"                           ]                         }                       }                     }                   ],                   "volumes": [                     {                       "name": "{{inputs.parameters.public_vol_nm}}",                       "persistentVolumeClaim": { "claimName": "{{inputs.parameters.public_pvc_nm}}" }                     },                     {                       "name": "{{inputs.parameters.private_vol_nm}}",                       "persistentVolumeClaim": { "claimName": "{{inputs.parameters.private_pvc_nm}}" }                     },                     {                       "name": "dshm",                       "emptyDir": {                         "medium": "Memory"                       }                     }                   ],                   "schedulerName": "scheduler-plugins-scheduler"                 }               }             }
       - --scheduleTimeoutSeconds
       - '1440'
       - --schedulingPolicy
@@ -327,7 +342,6 @@ spec:
       - {name: img}
       - {name: memory_per_worker}
       - {name: namespace}
-      - {name: ndr_per_worker}
       - {name: node_group_id}
       - {name: node_type}
       - {name: num_worker}
@@ -397,7 +411,7 @@ spec:
           {                     \"sidecar.istio.io/inject\": \"false\"                   },                   \"labels\":
           {                     \"aiplatform/task-parallelism\": \"multi-node\",                     \"aiplatform/task-type\":
           \"deepspeed\",                     \"app\": \"yunikorn\",                     \"scheduling.x-k8s.io/pod-group\":
-          \"{{inputs.parameters.run_name}}\",                   }                 },                 \"spec\":
+          \"{{inputs.parameters.run_name}}\"                   }                 },                 \"spec\":
           {                   \"affinity\": {                     \"nodeAffinity\":
           {                       \"requiredDuringSchedulingIgnoredDuringExecution\":
           {                         \"nodeSelectorTerms\": [{                           \"matchExpressions\":
@@ -405,7 +419,7 @@ spec:
           \"In\",                               \"values\": [\"{{inputs.parameters.node_group_id}}\"]                             },                             {                               \"key\":
           \"aiplatform/node-type\",                               \"operator\": \"In\",                               \"values\":
           [\"{{inputs.parameters.node_type}}\"]                             }                           ]                         }]                       }                     }                   },                   \"containers\":
-          [                     {                       \"name\": \"run-op-gpu-deepspeed\",                       \"image\":
+          [                     {                       \"name\": \"deepspeed\",                       \"image\":
           \"{{inputs.parameters.img}}\",                       \"command\": [\"/bin/bash\",
           \"-c\", \"sed -i'''' -e''s/^#   StrictHostKeyChecking ask/   StrictHostKeyChecking
           no/'' /etc/ssh/ssh_config \\\n && sed -i'''' -e''s/^#PermitRootLogin prohibit-password$/PermitRootLogin
@@ -428,15 +442,16 @@ spec:
           {{inputs.parameters.cpu_per_worker}},                           \"memory\":
           {{inputs.parameters.memory_per_worker}}Gi,                           \"nvidia.com/gpu\":
           {{inputs.parameters.gpu_per_worker}},                           \"rdma/rdma_shared_device_ndr\":
-          {{inputs.parameters.ndr_per_worker}}                         }                       },                       \"volumeMounts\":
+          1                         }                       },                       \"volumeMounts\":
           [                         {                           \"name\": \"{{inputs.parameters.public_vol_nm}}\",                           \"mountPath\":
           \"{{inputs.parameters.public_vol_mnt_path}}\"                         },                         {                           \"name\":
           \"{{inputs.parameters.private_vol_nm}}\",                           \"mountPath\":
           \"{{inputs.parameters.private_vol_mnt_path}}\"                         },                         {                           \"name\":
           \"dshm\",                           \"mountPath\": \"/dev/shm\"                         }                       ],                       \"securityContext\":
-          {                         \"privileged\": true                       }                     }                   ],                   \"volumes\":
+          {                         \"capabilities\": {                           \"add\":
+          [                             \"IPC_LOCK\"                           ]                         }                       }                     }                   ],                   \"volumes\":
           [                     {                       \"name\": \"{{inputs.parameters.public_vol_nm}}\",                       \"persistentVolumeClaim\":
-          { \"claimName\": \"{{inputs.parameters.public_pvc_nm}}\"  }                     },                     {                       \"name\":
+          { \"claimName\": \"{{inputs.parameters.public_pvc_nm}}\" }                     },                     {                       \"name\":
           \"{{inputs.parameters.private_vol_nm}}\",                       \"persistentVolumeClaim\":
           { \"claimName\": \"{{inputs.parameters.private_pvc_nm}}\" }                     },                     {                       \"name\":
           \"dshm\",                       \"emptyDir\": {                         \"medium\":
@@ -449,7 +464,7 @@ spec:
           {                     \"sidecar.istio.io/inject\": \"false\"                   },                   \"labels\":
           {                     \"aiplatform/task-parallelism\": \"multi-node\",                     \"aiplatform/task-type\":
           \"deepspeed\",                     \"app\": \"yunikorn\",                     \"scheduling.x-k8s.io/pod-group\":
-          {{inputs.parameters.run_name}}                   }                 },                 \"spec\":
+          \"{{inputs.parameters.run_name}}\"                   }                 },                 \"spec\":
           {                   \"affinity\": {                     \"nodeAffinity\":
           {                       \"requiredDuringSchedulingIgnoredDuringExecution\":
           {                         \"nodeSelectorTerms\": [{                           \"matchExpressions\":
@@ -480,13 +495,14 @@ spec:
           {{inputs.parameters.cpu_per_worker}},                           \"memory\":
           {{inputs.parameters.memory_per_worker}}Gi,                           \"nvidia.com/gpu\":
           {{inputs.parameters.gpu_per_worker}},                           \"rdma/rdma_shared_device_ndr\":
-          {{inputs.parameters.ndr_per_worker}}                         }                       },                       \"volumeMounts\":
+          1                         }                       },                       \"volumeMounts\":
           [                         {                           \"name\": \"{{inputs.parameters.public_vol_nm}}\",                           \"mountPath\":
           \"{{inputs.parameters.public_vol_mnt_path}}\"                         },                         {                           \"name\":
           \"{{inputs.parameters.private_vol_nm}}\",                           \"mountPath\":
           \"{{inputs.parameters.private_vol_mnt_path}}\"                         },                         {                           \"name\":
           \"dshm\",                           \"mountPath\": \"/dev/shm\"                         }                       ],                       \"securityContext\":
-          {                         \"privileged\": true                       }                     }                   ],                   \"volumes\":
+          {                         \"capabilities\": {                           \"add\":
+          [                             \"IPC_LOCK\"                           ]                         }                       }                     }                   ],                   \"volumes\":
           [                     {                       \"name\": \"{{inputs.parameters.public_vol_nm}}\",                       \"persistentVolumeClaim\":
           { \"claimName\": \"{{inputs.parameters.public_pvc_nm}}\" }                     },                     {                       \"name\":
           \"{{inputs.parameters.private_vol_nm}}\",                       \"persistentVolumeClaim\":
@@ -502,10 +518,9 @@ spec:
     - {name: img, value: ''}
     - {name: cmd, value: ''}
     - {name: num_worker, value: '3'}
-    - {name: cpu_per_worker, value: '16'}
-    - {name: memory_per_worker, value: '32'}
+    - {name: cpu_per_worker, value: '20'}
+    - {name: memory_per_worker, value: '80'}
     - {name: gpu_per_worker, value: '1'}
-    - {name: ndr_per_worker, value: '125'}
     - {name: node_group_id, value: '1'}
     - {name: node_type, value: ''}
     - {name: public_pvc_nm, value: ''}
