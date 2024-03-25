@@ -197,7 +197,7 @@ def custom_pipeline(
                       "resources": { \
                         "limits": { \
                           "cpu": %s, \
-                          "memory": %sGi, \
+                          "memory": %s, \
                           "nvidia.com/gpu": %s, \
                           "rdma/rdma_shared_device_ndr": %s \
                         } \
@@ -317,7 +317,7 @@ def custom_pipeline(
                       "resources": { \
                         "limits": { \
                           "cpu": %s, \
-                          "memory": %sGi, \
+                          "memory": %s, \
                           "nvidia.com/gpu": %s, \
                           "rdma/rdma_shared_device_ndr": %s \
                         } \

@@ -12,6 +12,7 @@ from kubernetes.client.models import V1EnvFromSource, V1ConfigMapEnvSource, V1En
 def Clear_PyTorchJob(name, namespace, version="v1"):
     import kubernetes
     kubernetes.config.load_incluster_config()
+    api_instance_custom = kubernetes.client.CustomObjectsApi()
     api_instance = kubernetes.client.CustomObjectsApi()
     group = "kubeflow.org"
     plural = "pytorchjobs"
@@ -173,7 +174,7 @@ def custom_pipeline(
                       "resources": { \
                         "limits": { \
                           "cpu": %s, \
-                          "memory": %sGi, \
+                          "memory": %s, \
                           "nvidia.com/gpu": %s, \
                           "rdma/rdma_shared_device_ndr": %s \
                         } \
@@ -293,7 +294,7 @@ def custom_pipeline(
                       "resources": { \
                         "limits": { \
                           "cpu": %s, \
-                          "memory": %sGi, \
+                          "memory": %s, \
                           "nvidia.com/gpu": %s, \
                           "rdma/rdma_shared_device_ndr": %s \
                         } \

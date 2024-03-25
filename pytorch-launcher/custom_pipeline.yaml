@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: launch-kubeflow-pytorchjob-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-03-25T04:03:02.302918',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-03-25T09:00:01.617370',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "An example to launch pytorch.",
       "inputs": [{"default": "", "name": "namespace", "optional": true, "type": "String"},
       {"default": "", "name": "application_id", "optional": true, "type": "String"},
@@ -50,6 +50,7 @@ spec:
         def Clear_PyTorchJob(name, namespace, version="v1"):
             import kubernetes
             kubernetes.config.load_incluster_config()
+            api_instance_custom = kubernetes.client.CustomObjectsApi()
             api_instance = kubernetes.client.CustomObjectsApi()
             group = "kubeflow.org"
             plural = "pytorchjobs"
@@ -111,9 +112,10 @@ spec:
           || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
           ''kubernetes'' --user) && \"$0\" \"$@\"", "sh", "-ec", "program_path=$(mktemp)\nprintf
           \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
-          "def Clear_PyTorchJob(name, namespace, version=\"v1\"):\n    import kubernetes\n    kubernetes.config.load_incluster_config()\n    api_instance
-          = kubernetes.client.CustomObjectsApi()\n    group = \"kubeflow.org\"\n    plural
-          = \"pytorchjobs\"\n    try:\n        api_response = api_instance.delete_namespaced_custom_object(\n            name=name,\n            namespace=namespace,\n            group=group,\n            version=version,\n            plural=plural,\n            body=kubernetes.client.models.V1DeleteOptions(\n                propagation_policy=''Foreground'',\n                grace_period_seconds=15\n            )\n        )\n        print(\"PyTorchJob
+          "def Clear_PyTorchJob(name, namespace, version=\"v1\"):\n    import kubernetes\n    kubernetes.config.load_incluster_config()\n    api_instance_custom
+          = kubernetes.client.CustomObjectsApi()\n    api_instance = kubernetes.client.CustomObjectsApi()\n    group
+          = \"kubeflow.org\"\n    plural = \"pytorchjobs\"\n    try:\n        api_response
+          = api_instance.delete_namespaced_custom_object(\n            name=name,\n            namespace=namespace,\n            group=group,\n            version=version,\n            plural=plural,\n            body=kubernetes.client.models.V1DeleteOptions(\n                propagation_policy=''Foreground'',\n                grace_period_seconds=15\n            )\n        )\n        print(\"PyTorchJob
           deleted. Status=''%s''\" % str(api_response.get(\"status\", None)))\n    except
           kubernetes.client.rest.ApiException as e:\n        print(\"Exception when
           calling CustomObjectsApi->delete_namespaced_custom_object: %s\\n\" % e)\n\n    try:\n        api_response
@@ -293,7 +295,7 @@ spec:
         "MLFLOW_EXPERIMENT_NAME",                           "value": "{{inputs.parameters.exp_nm}}"                         },                         {                           "name":
         "MLFLOW_RUN_NAME",                           "value": "{{inputs.parameters.run_name}}"                         }                       ],                       "resources":
         {                         "limits": {                           "cpu": {{inputs.parameters.cpu_per_worker}},                           "memory":
-        {{inputs.parameters.memory_per_worker}}Gi,                           "nvidia.com/gpu":
+        {{inputs.parameters.memory_per_worker}},                           "nvidia.com/gpu":
         {{inputs.parameters.gpu_per_worker}},                           "rdma/rdma_shared_device_ndr":
         1                         }                       },                       "volumeMounts":
         [                         {                           "name": "{{inputs.parameters.public_vol_nm}}",                           "mountPath":
@@ -335,7 +337,7 @@ spec:
         "MLFLOW_EXPERIMENT_NAME",                           "value": "{{inputs.parameters.exp_nm}}"                         },                         {                           "name":
         "MLFLOW_RUN_NAME",                           "value": "{{inputs.parameters.run_name}}"                         }                       ],                       "resources":
         {                         "limits": {                           "cpu": {{inputs.parameters.cpu_per_worker}},                           "memory":
-        {{inputs.parameters.memory_per_worker}}Gi,                           "nvidia.com/gpu":
+        {{inputs.parameters.memory_per_worker}},                           "nvidia.com/gpu":
         {{inputs.parameters.gpu_per_worker}},                           "rdma/rdma_shared_device_ndr":
         1                         }                       },                       "volumeMounts":
         [                         {                           "name": "{{inputs.parameters.public_vol_nm}}",                           "mountPath":
@@ -450,7 +452,7 @@ spec:
           \"MLFLOW_RUN_NAME\",                           \"value\": \"{{inputs.parameters.run_name}}\"                         }                       ],                       \"resources\":
           {                         \"limits\": {                           \"cpu\":
           {{inputs.parameters.cpu_per_worker}},                           \"memory\":
-          {{inputs.parameters.memory_per_worker}}Gi,                           \"nvidia.com/gpu\":
+          {{inputs.parameters.memory_per_worker}},                           \"nvidia.com/gpu\":
           {{inputs.parameters.gpu_per_worker}},                           \"rdma/rdma_shared_device_ndr\":
           1                         }                       },                       \"volumeMounts\":
           [                         {                           \"name\": \"{{inputs.parameters.public_vol_nm}}\",                           \"mountPath\":
@@ -495,7 +497,7 @@ spec:
           \"MLFLOW_RUN_NAME\",                           \"value\": \"{{inputs.parameters.run_name}}\"                         }                       ],                       \"resources\":
           {                         \"limits\": {                           \"cpu\":
           {{inputs.parameters.cpu_per_worker}},                           \"memory\":
-          {{inputs.parameters.memory_per_worker}}Gi,                           \"nvidia.com/gpu\":
+          {{inputs.parameters.memory_per_worker}},                           \"nvidia.com/gpu\":
           {{inputs.parameters.gpu_per_worker}},                           \"rdma/rdma_shared_device_ndr\":
           1                         }                       },                       \"volumeMounts\":
           [                         {                           \"name\": \"{{inputs.parameters.public_vol_nm}}\",                           \"mountPath\":
