@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: launch-kubeflow-pytorchjob-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-03-25T09:00:01.617370',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.22, pipelines.kubeflow.org/pipeline_compilation_time: '2024-04-01T08:37:53.402645',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "An example to launch pytorch.",
       "inputs": [{"default": "", "name": "namespace", "optional": true, "type": "String"},
       {"default": "", "name": "application_id", "optional": true, "type": "String"},
@@ -248,7 +248,7 @@ spec:
       - {name: MLFLOW_RUN_NAME, value: '{{inputs.parameters.run_name}}'}
       envFrom:
       - configMapRef: {name: '{{inputs.parameters.config_map_name}}', optional: true}
-      image: docker.io/jomi0330/mlflow-logging:prod
+      image: docker.io/yhjh5302/mlflow-logging:v1
     inputs:
       parameters:
       - {name: config_map_name}

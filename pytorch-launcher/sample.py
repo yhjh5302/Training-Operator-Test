@@ -347,7 +347,7 @@ def custom_pipeline(
 
         logging_task = dsl.ContainerOp(
             name="logging-op",
-            image="docker.io/jomi0330/mlflow-logging:prod",
+            image="docker.io/yhjh5302/mlflow-logging:v1",
             command=["sh", "-c", "python mlflow_run_detail.py"],
             output_artifact_paths={"mlpipeline-ui-metadata": "/mlpipeline-ui-metadata.json"}
         )
