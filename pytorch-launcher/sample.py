@@ -1,4 +1,4 @@
-import time
+import time, uuid
 
 from kfp import Client as kfp_client
 from kfp import auth
@@ -79,28 +79,35 @@ def custom_pipeline(
         config_map_name: str = "",
         device: str = "",
         value: str = "",
+        nccl_conf: str = "",
+        email: str = "",
+        username: str = "",
     ) -> None:
     if not num_worker > 0:
         raise ValueError("num_worker must be greater than 0.")
 
     # PyTorchJob Test
-    pytorch_job_op = components.load_component_from_file('./pytorch_job_component.yaml')
     # name: str = 'pytorch-cnn-dist-job'
     # img: str = 'yhjh5302/pytorchjob-test:latest'
     # cmd: str = 'cd /workspace && python3 pytorchjob_train.py --batch_size=1 --backend=gloo'
     # cpu_per_worker = 20
     # memory_per_worker = 80
     # gpu_per_worker = 1
+
+    # Settings
+    pytorch_ssh_key = str(username) + "-ssh-key"
+    pytorch_job_op = components.load_component_from_file('./pytorch_job_component.yaml')
+    job_name = "violet-run-pipeline-ddp-" + str(uuid.uuid4().hex)[:16]
     ndr_per_worker = 1
 
     handle_exit = clear_pytorchjob_op(
-        name=run_name,
+        name=job_name,
         namespace=namespace,
         version='v1'
     )
     with dsl.ExitHandler(handle_exit):
         train_task = pytorch_job_op(
-            name=run_name,
+            name=job_name,
             namespace=namespace,
             master_spec='{ \
               "replicas": 1, \
@@ -108,7 +115,8 @@ def custom_pipeline(
               "template": { \
                 "metadata": { \
                   "annotations": { \
-                    "sidecar.istio.io/inject": "false" \
+                    "sidecar.istio.io/inject": "false", \
+                    "aiplatform/owner": "%s" \
                   }, \
                   "labels": { \
                     "aiplatform/task-parallelism": "multi-node", \
@@ -191,6 +199,21 @@ def custom_pipeline(
                         { \
                           "name": "dshm", \
                           "mountPath": "/dev/shm" \
+                        }, \
+                        { \
+                          "name": "nccl-conf", \
+                          "subPath": "nccl.conf", \
+                          "mountPath": "/etc/nccl.conf" \
+                        }, \
+                        { \
+                          "name": "ssh-public-key", \
+                          "subPath": "authorized_keys", \
+                          "mountPath": "/root/.ssh/authorized_keys" \
+                        }, \
+                        { \
+                          "name": "ssh-private-key", \
+                          "subPath": "id_rsa_violet", \
+                          "mountPath": "/root/.ssh/id_rsa" \
                         } \
                       ], \
                       "securityContext": { \
@@ -216,19 +239,53 @@ def custom_pipeline(
                       "emptyDir": { \
                         "medium": "Memory" \
                       } \
+                    }, \
+                    { \
+                      "name": "nccl-conf", \
+                      "configMap": { \
+                        "name": "%s", \
+                        "defaultMode": 420 \
+                      } \
+                    }, \
+                    { \
+                      "name": "ssh-public-key", \
+                      "secret": { \
+                        "secretName": "%s", \
+                        "defaultMode": 384, \
+                        "items": [ \
+                          { \
+                            "key": "public_key", \
+                            "path": "authorized_keys" \
+                          } \
+                        ] \
+                      } \
+                    }, \
+                    { \
+                      "name": "ssh-private-key", \
+                      "secret": { \
+                        "secretName": "%s", \
+                        "defaultMode": 384, \
+                        "items": [ \
+                          { \
+                            "key": "private_key", \
+                            "path": "id_rsa_violet" \
+                          } \
+                        ] \
+                      } \
                     } \
                   ], \
                   "schedulerName": "scheduler-plugins-scheduler" \
                 } \
               } \
-            }' % (run_name, node_group_id, node_type, img, cmd, config_map_name, node_group_id, node_type, device, value, exp_nm, run_name, cpu_per_worker, memory_per_worker, gpu_per_worker, ndr_per_worker, public_vol_nm, public_vol_mnt_path, private_vol_nm, private_vol_mnt_path, public_vol_nm, public_pvc_nm, private_vol_nm, private_pvc_nm),
+            }' % (email, job_name, node_group_id, node_type, img, cmd, config_map_name, node_group_id, node_type, device, value, exp_nm, run_name, cpu_per_worker, memory_per_worker, gpu_per_worker, ndr_per_worker, public_vol_nm, public_vol_mnt_path, private_vol_nm, private_vol_mnt_path, public_vol_nm, public_pvc_nm, private_vol_nm, private_pvc_nm, nccl_conf, pytorch_ssh_key, pytorch_ssh_key),
             worker_spec='{ \
               "replicas": %s, \
               "restartPolicy": "Never", \
               "template": { \
                 "metadata": { \
                   "annotations": { \
-                    "sidecar.istio.io/inject": "false" \
+                    "sidecar.istio.io/inject": "false", \
+                    "aiplatform/owner": "%s" \
                   }, \
                   "labels": { \
                     "aiplatform/task-parallelism": "multi-node", \
@@ -311,6 +368,21 @@ def custom_pipeline(
                         { \
                           "name": "dshm", \
                           "mountPath": "/dev/shm" \
+                        }, \
+                        { \
+                          "name": "nccl-conf", \
+                          "subPath": "nccl.conf", \
+                          "mountPath": "/etc/nccl.conf" \
+                        }, \
+                        { \
+                          "name": "ssh-public-key", \
+                          "subPath": "authorized_keys", \
+                          "mountPath": "/root/.ssh/authorized_keys" \
+                        }, \
+                        { \
+                          "name": "ssh-private-key", \
+                          "subPath": "id_rsa_violet", \
+                          "mountPath": "/root/.ssh/id_rsa" \
                         } \
                       ], \
                       "securityContext": { \
@@ -336,12 +408,45 @@ def custom_pipeline(
                       "emptyDir": { \
                         "medium": "Memory" \
                       } \
+                    }, \
+                    { \
+                      "name": "nccl-conf", \
+                      "configMap": { \
+                        "name": "%s", \
+                        "defaultMode": 420 \
+                      } \
+                    }, \
+                    { \
+                      "name": "ssh-public-key", \
+                      "secret": { \
+                        "secretName": "%s", \
+                        "defaultMode": 384, \
+                        "items": [ \
+                          { \
+                            "key": "public_key", \
+                            "path": "authorized_keys" \
+                          } \
+                        ] \
+                      } \
+                    }, \
+                    { \
+                      "name": "ssh-private-key", \
+                      "secret": { \
+                        "secretName": "%s", \
+                        "defaultMode": 384, \
+                        "items": [ \
+                          { \
+                            "key": "private_key", \
+                            "path": "id_rsa_violet" \
+                          } \
+                        ] \
+                      } \
                     } \
                   ], \
                   "schedulerName": "scheduler-plugins-scheduler" \
                 } \
               } \
-            }' % (num_worker, run_name, node_group_id, node_type, img, cmd, config_map_name, node_group_id, node_type, device, value, exp_nm, run_name, cpu_per_worker, memory_per_worker, gpu_per_worker, ndr_per_worker, public_vol_nm, public_vol_mnt_path, private_vol_nm, private_vol_mnt_path, public_vol_nm, public_pvc_nm, private_vol_nm, private_pvc_nm),
+            }' % (num_worker, email, job_name, node_group_id, node_type, img, cmd, config_map_name, node_group_id, node_type, device, value, exp_nm, run_name, cpu_per_worker, memory_per_worker, gpu_per_worker, ndr_per_worker, public_vol_nm, public_vol_mnt_path, private_vol_nm, private_vol_mnt_path, public_vol_nm, public_pvc_nm, private_vol_nm, private_pvc_nm, nccl_conf, pytorch_ssh_key, pytorch_ssh_key),
             delete_after_done=True
         )
 

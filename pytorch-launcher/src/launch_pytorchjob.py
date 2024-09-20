@@ -142,6 +142,7 @@ def main(args):
 
     config.load_incluster_config()
     api_client = k8s_client.ApiClient()
+    core_client = k8s_client.CoreV1Api()
     launcher_client = launch_crd.K8sCR(
         group=args.jobGroup,
         plural=args.jobPlural,
@@ -177,10 +178,13 @@ def main(args):
         thread.daemon = True
         thread.start()
 
-    launcher_client.wait_for_condition(
+    results = launcher_client.wait_for_condition(
         args.namespace, args.name, expected_conditions,
         timeout=datetime.timedelta(minutes=args.jobTimeoutMinutes),
         delete_after_done=args.deleteAfterDone)
+    if str(results.get("status", {}).get("conditions")[-1]["type"]) == "Failed":
+        reason = core_client.read_namespaced_pod_log(name=f"{args.name}-launcher", namespace=args.namespace, tail_lines=100)
+        raise RuntimeError(f"Failed: Reason below:\n{reason}")
     if args.deleteAfterDone:
         logger.info("Deleting job.")
         launcher_client.delete(args.name, args.namespace)

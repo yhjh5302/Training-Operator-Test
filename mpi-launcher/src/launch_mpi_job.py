@@ -112,6 +112,19 @@ def extract_replicas(worker_spec):
         return 0
 
 
+def extract_slots_per_worker(worker_spec):
+    containers = worker_spec["template"]["spec"]["containers"][0]
+    resources = containers.get("resources", {})
+    limits = resources.get("limits", {})
+    slots = limits.get("nvidia.com/gpu")
+    if slots is not None:
+        logger.info(f"Slots per worker found: {slots}")
+        return int(slots)
+    else:
+        logger.error("Slots per worker not found in worker spec.")
+        return 0
+
+
 def main(args):
     logger.setLevel(logging.INFO)
     logger.info("Generating job template.")
@@ -125,6 +138,7 @@ def main(args):
         active_deadline_seconds=args.activeDeadlineSeconds,
         backoff_limit=args.backoffLimit,
         clean_pod_policy=args.cleanPodPolicy,
+        slots_per_worker=extract_slots_per_worker(args.workerSpec),
         ttl_seconds_after_finished=args.ttlSecondsAfterFinished,
     )
 
@@ -146,6 +160,7 @@ def main(args):
 
     config.load_incluster_config()
     api_client = k8s_client.ApiClient()
+    core_client = k8s_client.CoreV1Api()
     launcher_client = launch_crd.K8sCR(
         group=args.jobGroup,
         plural=args.jobPlural,
@@ -206,10 +221,13 @@ def main(args):
     thread.daemon = True
     thread.start()
 
-    launcher_client.wait_for_condition(
+    results = launcher_client.wait_for_condition(
         args.namespace, args.name, expected_conditions,
         timeout=datetime.timedelta(minutes=args.jobTimeoutMinutes),
         delete_after_done=args.deleteAfterDone)
+    if str(results.get("status", {}).get("conditions")[-1]["type"]) == "Failed":
+        reason = core_client.read_namespaced_pod_log(name=f"{args.name}-launcher", namespace=args.namespace, tail_lines=100)
+        raise RuntimeError(f"Failed: Reason below:\n{reason}")
     if args.deleteAfterDone:
         logger.info("Deleting job.")
         launcher_client.delete(args.name, args.namespace)

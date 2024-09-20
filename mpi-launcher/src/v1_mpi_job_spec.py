@@ -52,6 +52,7 @@ class V1MPIJobSpec(object):
         'active_deadline_seconds': 'int',
         'backoff_limit': 'int',
         'clean_pod_policy': 'str',
+        'slots_per_worker': 'int',
         'ttl_seconds_after_finished': 'int'
     }
 
@@ -61,10 +62,11 @@ class V1MPIJobSpec(object):
         'active_deadline_seconds': 'activeDeadlineSeconds',
         'backoff_limit': 'backoffLimit',
         'clean_pod_policy': 'cleanPodPolicy',
+        'slots_per_worker': 'slotsPerWorker',
         'ttl_seconds_after_finished': 'ttlSecondsAfterFinished'
     }
 
-    def __init__(self, mpi_replica_specs=None, scheduling_policy=None, active_deadline_seconds=None, backoff_limit=None, clean_pod_policy=None, ttl_seconds_after_finished=None):  # noqa: E501
+    def __init__(self, mpi_replica_specs=None, scheduling_policy=None, active_deadline_seconds=None, backoff_limit=None, clean_pod_policy=None, slots_per_worker=None, ttl_seconds_after_finished=None):  # noqa: E501
         """V1MPIJobSpec - a model defined in Swagger"""  # noqa: E501
 
         self._mpi_replica_specs = None
@@ -72,6 +74,7 @@ class V1MPIJobSpec(object):
         self._active_deadline_seconds = None
         self._backoff_limit = None
         self._clean_pod_policy = None
+        self._slots_per_worker = None
         self._ttl_seconds_after_finished = None
         self.discriminator = None
 
@@ -84,6 +87,8 @@ class V1MPIJobSpec(object):
             self.backoff_limit = backoff_limit
         if clean_pod_policy is not None:
             self.clean_pod_policy = clean_pod_policy
+        if slots_per_worker is not None:
+            self.slots_per_worker = slots_per_worker
         if ttl_seconds_after_finished is not None:
             self.ttl_seconds_after_finished = ttl_seconds_after_finished
 
@@ -203,6 +208,29 @@ class V1MPIJobSpec(object):
         """
 
         self._clean_pod_policy = clean_pod_policy
+
+    @property
+    def slots_per_worker(self):
+        """Gets the slots_per_worker of this V1MPIJobSpec.  # noqa: E501
+
+        Defines the policy for cleaning up pods after the MPIJob completes. Defaults to None.  # noqa: E501
+
+        :return: The slots_per_worker of this V1MPIJobSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._slots_per_worker
+
+    @slots_per_worker.setter
+    def slots_per_worker(self, slots_per_worker):
+        """Sets the slots_per_worker of this V1MPIJobSpec.
+
+        Defines the policy for cleaning up pods after the MPIJob completes. Defaults to None.  # noqa: E501
+
+        :param slots_per_worker: The slots_per_worker of this V1MPIJobSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._slots_per_worker = slots_per_worker
 
     @property
     def ttl_seconds_after_finished(self):
